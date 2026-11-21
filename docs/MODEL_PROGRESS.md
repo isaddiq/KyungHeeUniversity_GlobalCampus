@@ -64,6 +64,16 @@ courts). The remaining buildings are done after that.
   wings, so the model keeps them straight.
 - **Screenshots:** before `screenshots/places/01_gate_street_before.png`; after
   `screenshots/places/01_gate_street.png`, `screenshots/places/01_gate_campus.png`.
+- **Sculpture detail:** the roof groups use distinct poses and modeled hands, faces, drapery,
+  and props. The central group carries a staff, an open book, a scroll, and a dove. Both
+  spandrels use layered wings and palm branches. The pavilion artwork includes four-figure
+  reliefs, eagles with ribboned globes, and tilted armillary rings. The arch medallions have
+  raised bronze ornament, and the column capitals have carved leaves and scrolls. The
+  sculpture is interpreted from the photographs. The gate still measures 22.5 m tall in the viewer.
+- Close-ups of the [crown figures](screenshots/places/01_gate_crown_detail.png),
+  [arch ornaments](screenshots/places/01_gate_arch_detail.png),
+  [pavilion relief and tablet](screenshots/places/01_gate_pavilion_relief_detail.png), and
+  [armillary group](screenshots/places/01_gate_armillary_detail.png).
 
 ## 02 · 애지원 — ROTC 학군단 building
 

@@ -13,6 +13,33 @@ or API key is needed.
 Every geometric value in the scene comes from a real dataset, and every value that is estimated or
 stylised is labelled as such in the UI and in the machine-readable accuracy report.
 
+## Purpose: education and research
+
+This project is made for **educational and research purposes**. It is an open, reproducible starting
+point for building a **campus digital twin**. Students, teachers and researchers can study, reuse and
+extend it, for example to:
+
+- **Teach geospatial methods:** terrain models (DTM vs DSM), vertical datums and geoids, coordinate
+  systems (WGS84 / EPSG:5186), OpenStreetMap data, and how to label data quality and provenance.
+- **Build a fuller digital twin:** add indoor floor plans, rooms and accessibility routes; connect live
+  sensor feeds (energy, temperature, air quality, occupancy, parking); or link facility-management records
+  to buildings.
+- **Plan and simulate the campus:** study sunlight and shadows, line-of-sight and views, walking and
+  wheelchair routes on the real slopes, shuttle-bus and traffic flows, emergency evacuation, and the
+  impact of new buildings or landscaping.
+- **Study the environment:** stormwater and flood paths over the terrain, tree canopy and heat-island
+  mapping, noise, and solar-panel potential on roofs.
+- **Navigate and engage:** virtual campus tours for new students and visitors, wayfinding, event and
+  open-day maps, and AR/VR experiences built on the same geometry.
+- **Practise reconstruction:** photo-based 3D modelling (as documented in
+  [docs/MODEL_PROGRESS.md](docs/MODEL_PROGRESS.md)), photogrammetry or LiDAR comparison, and
+  accuracy assessment against surveyed data.
+
+Use is **non-commercial**. The FABDEM terrain licence (CC BY-NC-SA 4.0) and the terms of the other data
+sources apply; see [Data sources and licences](#data-sources-and-licences). This is an independent
+reconstruction, not an official Kyung Hee University product, and it is not survey-grade. Do not use it
+for engineering, legal or safety decisions.
+
 |                 |                                                                                                                        |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Campus boundary | OpenStreetMap relation [11246784](https://www.openstreetmap.org/relation/11246784): 2 parts, 72.0 ha, 4.68 km perimeter |

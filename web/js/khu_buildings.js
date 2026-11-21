@@ -98,7 +98,7 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
     const { mesh, topEll } = buildGateModel(details.gate, dem);
     const id = { bid: rec.props.id, part: 0, kind: "building" };
     rec.parts = [id];
-    rec.appearance = "triumphal-arch gate modelled from 25 photographs: arch with coffered vault, giant Corinthian columns, winged figures in the spandrels, medallion, attic inscribed NEO-RENAISSANCE with sculpture group; wings of 4 coupled column pairs per row on a 3-step stylobate; end pavilions with figural reliefs, engraved stone tablets with eagles and armillary-sphere groups";
+    rec.appearance = "triumphal arch with a coffered vault and carved Corinthian capitals; rooftop figures with a staff, book, scroll and dove; feathered spandrel figures and bronze medallions; pavilion reliefs, armillary spheres and eagles above the tablets";
     rec.modelHeight = 22.5;
     rec.top = topEll;
     instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));

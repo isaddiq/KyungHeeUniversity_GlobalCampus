@@ -242,14 +242,28 @@ void main() {
       if (abs(c.y + c.x * 0.3) < 0.06 && c.x > 0.0 && c.x < 0.8) col = vec3(0.1);
     }
   } else if (sty == 22.0) {                       // engraved stone tablet: fret frame, title, lines of text
-    col = base;
-    float fr = min(min(u, L - u), min(h, H - h));
-    if (fr < 0.14) col = base * (0.9 + 0.12 * step(0.5, fract((u + h) / 0.1)));
-    else if (fr < 0.19) col = base * 0.78;
-    else if (h > H - 0.46 && h < H - 0.3) { if (abs(u - L * 0.5) < L * 0.22 && hash(vec2(floor(u / 0.09), 3.0)) > 0.25) col = base * 0.5; }
-    else if (h > 0.3 && h < H - 0.55 && u > 0.3 && u < L - 0.3) {
-      float ln = fract((H - h) / 0.1);
-      if (ln > 0.35 && ln < 0.72 && hash(vec2(floor(u / 0.06), floor(h / 0.1))) > 0.32) col = base * 0.58;
+    col = base * (0.89 + 0.055 * vnoise(vec2(u, h) * 5.0));
+    float across = min(u, L - u), vertical = min(h, H - h);
+    float fr = min(across, vertical);
+    if (fr < 0.155) {
+      float run = across < vertical ? h : u;
+      float stepWidth = 0.010 * (floor(mod(run, 0.22) / 0.055) - 1.5);
+      float groove = abs(fract((fr + stepWidth) / 0.036) - 0.5);
+      col = mix(base * 0.71, vec3(0.32, 0.36, 0.34), 0.58 * smoothstep(0.34, 0.48, groove));
+    } else if (fr < 0.18) {
+      col = base * 0.74;
+    } else {
+      float fromTop = H - h, line = floor(fromTop / 0.072);
+      bool title = fromTop > 0.32 && fromTop < 0.54 && abs(u - L * 0.5) < L * 0.27;
+      float lineWidth = 0.30 + hash(vec2(line, 4.1)) * 0.10;
+      bool body = fromTop > 0.66 && h > 0.27 && abs(u - L * 0.5) < L * lineWidth && mod(line, 6.0) < 5.0;
+      vec2 glyph = vec2(u / 0.024, fromTop / 0.072);
+      vec2 pen = fract(glyph);
+      float ink = hash(floor(glyph));
+      if ((title || body) && ink > 0.19 && pen.y > 0.26 && pen.y < 0.56 && pen.x < 0.73 &&
+          (pen.x < 0.23 || pen.y < 0.33 || (ink > 0.4 && pen.y > 0.48))) {
+        col *= mix(title ? 0.54 : 0.69, 1.0, smoothstep(0.011, 0.05, fwidth(u)));
+      }
     }
     spec = 0.1; shin = 20.0;
   } else if (sty == 23.0) {                       // banded slab: projecting floor bands, recessed window strip, fins per bay
