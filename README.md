@@ -1,4 +1,8 @@
+![1795268841490](image/README/1795268841490.png)
+
 # Kyung Hee University Global Campus: geospatial 3D digital twin
+
+
 
 An interactive, geographically referenced 3D reconstruction of **Kyung Hee University Global Campus**
 (경희대학교 국제캠퍼스, 1732 Deogyeong-daero, Giheung-gu, Yongin-si). It is a static website built on
@@ -9,13 +13,13 @@ or API key is needed.
 Every geometric value in the scene comes from a real dataset, and every value that is estimated or
 stylised is labelled as such in the UI and in the machine-readable accuracy report.
 
-| | |
-|---|---|
+|                 |                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Campus boundary | OpenStreetMap relation [11246784](https://www.openstreetmap.org/relation/11246784): 2 parts, 72.0 ha, 4.68 km perimeter |
-| Terrain | FABDEM V1-2 bare-earth DTM, 1″ (≈24.6 × 30.9 m), EGM2008 → WGS84 ellipsoid, **1:1 scale, no exaggeration** |
-| Campus relief | 55.5–112.9 m (57 m) inside the boundary |
-| Buildings | 41 inside the campus, 1,104 including a ~600 m context ring; 23/24 official KHU campus-map buildings matched |
-| Coordinates | WGS84 (EPSG:4326); EPSG:5186 readouts checked against PROJ (max difference 0.002 mm) |
+| Terrain         | FABDEM V1-2 bare-earth DTM, 1″ (≈24.6 × 30.9 m), EGM2008 → WGS84 ellipsoid, **1:1 scale, no exaggeration**   |
+| Campus relief   | 55.5–112.9 m (57 m) inside the boundary                                                                               |
+| Buildings       | 41 inside the campus, 1,104 including a ~600 m context ring; 23/24 official KHU campus-map buildings matched           |
+| Coordinates     | WGS84 (EPSG:4326); EPSG:5186 readouts checked against PROJ (max difference 0.002 mm)                                   |
 
 ## Features
 
@@ -29,7 +33,7 @@ stylised is labelled as such in the UI and in the machine-readable accuracy repo
     11.3 m drive-through opening taken from the mapped footprint vertices;
   - the **평화노천극장 amphitheatre**, with 41 seating terraces sliced from the real DTM slope;
   - the **천문대 observatory**, with a dome on its circular footprint.
-  Surrounding buildings are plain LOD1 masses.
+    Surrounding buildings are plain LOD1 masses.
 - **Roads, footways, steps, parking, landcover and POIs** (OSM) are draped on the terrain. Vegetation
   instances are placed using OSM woods and a canopy-height model (Copernicus DSM − FABDEM). They are
   labelled as a visual approximation.
@@ -79,14 +83,14 @@ python scripts/run_all.py --offline  # rebuild web/data from data/raw only
 python scripts/check_site.py         # optional: browser checks + screenshots (serve web/ on :8765 first)
 ```
 
-| Step | Script | Output |
-|---|---|---|
-| OSM acquisition (campus relation + ~600 m buffer) | `fetch_osm.py` | `data/raw/osm_overpass.json` |
-| DEM acquisition (FABDEM tile pulled out of the 640 MB zip with HTTP range requests; Copernicus GLO-30 from AWS) | `fetch_dem.py` | `data/raw/*.tif` |
-| Terrain grid, EGM2008 geoid grid (PROJ), slope + hillshade overlays | `build_terrain.py` | `web/data/terrain/` |
-| Buildings, roads, landcover, POIs, vegetation | `build_features.py` | `web/data/*.geojson`, `trees.bin` |
-| Gate frame, amphitheatre terraces, observatory | `build_campus_details.py` | `web/data/campus_details.json` |
-| Validation, provenance, accuracy report | `validate.py` | `web/data/summary.json`, `web/data/accuracy_report.json`, `docs/ACCURACY.md` |
+| Step                                                                                                            | Script                      | Output                                                                             |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| OSM acquisition (campus relation + ~600 m buffer)                                                               | `fetch_osm.py`            | `data/raw/osm_overpass.json`                                                     |
+| DEM acquisition (FABDEM tile pulled out of the 640 MB zip with HTTP range requests; Copernicus GLO-30 from AWS) | `fetch_dem.py`            | `data/raw/*.tif`                                                                 |
+| Terrain grid, EGM2008 geoid grid (PROJ), slope + hillshade overlays                                             | `build_terrain.py`        | `web/data/terrain/`                                                              |
+| Buildings, roads, landcover, POIs, vegetation                                                                   | `build_features.py`       | `web/data/*.geojson`, `trees.bin`                                              |
+| Gate frame, amphitheatre terraces, observatory                                                                  | `build_campus_details.py` | `web/data/campus_details.json`                                                   |
+| Validation, provenance, accuracy report                                                                         | `validate.py`             | `web/data/summary.json`, `web/data/accuracy_report.json`, `docs/ACCURACY.md` |
 
 **Adding documented heights:** OSM and the official KHU pages give no heights or floor counts for 40 of
 the 41 campus buildings, so their heights are *estimated* from footprint size. If you obtain documented
@@ -96,14 +100,14 @@ rerun `python scripts/run_all.py --offline`. They will be labelled *documented*.
 
 ## Data sources and licences
 
-| Dataset | Use | Licence |
-|---|---|---|
-| [FABDEM V1-2](https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn) (Hawker et al. 2022) | Bare-earth terrain | **CC BY-NC-SA 4.0**: the derived terrain files in `web/data/terrain/` inherit this, so the project is non-commercial |
-| [Copernicus DEM GLO-30](https://registry.opendata.aws/copernicus-dem/) | DSM cross-checks, canopy model | Copernicus DEM licence (free, attribution) |
-| [OpenStreetMap](https://www.openstreetmap.org/copyright) | Boundary, footprints, roads, landcover, POIs | ODbL 1.0 (© OpenStreetMap contributors) |
-| [KHU campus map list](https://www.khu.ac.kr/kor/user/contents/view.do?menuNo=200086) | Official building names and numbers (verification) | © Kyung Hee University |
-| EGM2008 via PROJ | Vertical datum conversion | Public domain |
-| Esri World Imagery (default), EOX Sentinel-2 cloudless (CC BY-NC-SA), OSM tiles, VWorld (optional key) | Display texture only, streamed and not redistributed | Provider terms |
+| Dataset                                                                                                | Use                                                  | Licence                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| [FABDEM V1-2](https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn) (Hawker et al. 2022)      | Bare-earth terrain                                   | **CC BY-NC-SA 4.0**: the derived terrain files in `web/data/terrain/` inherit this, so the project is non-commercial |
+| [Copernicus DEM GLO-30](https://registry.opendata.aws/copernicus-dem/)                                  | DSM cross-checks, canopy model                       | Copernicus DEM licence (free, attribution)                                                                                   |
+| [OpenStreetMap](https://www.openstreetmap.org/copyright)                                                | Boundary, footprints, roads, landcover, POIs         | ODbL 1.0 (© OpenStreetMap contributors)                                                                                     |
+| [KHU campus map list](https://www.khu.ac.kr/kor/user/contents/view.do?menuNo=200086)                    | Official building names and numbers (verification)   | © Kyung Hee University                                                                                                      |
+| EGM2008 via PROJ                                                                                       | Vertical datum conversion                            | Public domain                                                                                                                |
+| Esri World Imagery (default), EOX Sentinel-2 cloudless (CC BY-NC-SA), OSM tiles, VWorld (optional key) | Display texture only, streamed and not redistributed | Provider terms                                                                                                               |
 
 **VWorld:** you can paste a key in *Terrain → Imagery → VWorld* (it is stored only in your browser) or
 set `vworldKey` in `web/js/config.js`. VWorld keys are tied to a domain, so register

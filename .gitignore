@@ -5,3 +5,9 @@ __pycache__/
 .venv/
 .DS_Store
 Thumbs.db
+
+# user-supplied reference photos: rights unverified, never commit or deploy
+kyunghee pictures/
+
+# temporary before/after renders made while modelling from the reference photos (not published)
+docs/screenshots/places/

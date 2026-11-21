@@ -25,7 +25,7 @@ M_PER_DLAT = 110_950.0
 
 
 def main():
-    dtm, dsm = load()
+    dtm, dsm = load(raw=True)   # accuracy checks are about the source DTM, not the local conditioning
     tmeta = read_json(WEB_DATA / "terrain" / "dtm.json")
     boundary = read_json(WEB_DATA / "boundary.geojson")["features"][0]
     B = read_json(WEB_DATA / "buildings.geojson")["features"]

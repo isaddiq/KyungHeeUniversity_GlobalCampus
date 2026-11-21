@@ -3,7 +3,7 @@
 // Appearance: STYLISED procedural facades coloured by building role. Landmarks (main gate, library,
 // obelisks, fountain, amphitheatre, observatory) get dedicated models - see khu_landmarks.js.
 import { Mesh, Frame, STY, hex, createFacadeAppearance } from "./mesh.js";
-import { buildGateModel, buildLibraryModel, buildObelisk, buildTheatre, addPondRocks, buildPeaceHall, buildArtDesign } from "./khu_landmarks.js";
+import { buildGateModel, buildLibraryModel, buildObelisk, buildTheatre, addPondRocks, buildPeaceHall, buildArtDesign, buildPhotoModel } from "./khu_landmarks.js";
 const Cesium = window.Cesium;
 
 // style ids: 0 granite/arched, 1 modern ribbon glass, 2 residential, 3 greenhouse, 4 rusticated stone
@@ -76,7 +76,8 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
   const frame = new Frame(center[0], center[1], 0);
   const instances = [];
   const groundAt = (lo, la) => dem.heightEllipsoid(lo, la);
-  const special = new Set([details?.gate?.id, details?.amphitheatre?.id, details?.library?.id, details?.peacehall?.id, details?.artdesign?.id].filter(Boolean));
+  const photoModels = details?.photo_buildings ?? {};
+  const special = new Set([details?.gate?.id, details?.amphitheatre?.id, details?.library?.id, details?.peacehall?.id, details?.artdesign?.id, ...Object.keys(photoModels)].filter(Boolean));
   const byId = new Map(campusRecs.map((r) => [r.props.id, r]));
   for (const rec of campusRecs) {
     const p = rec.props;
@@ -97,7 +98,7 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
     const { mesh, topEll } = buildGateModel(details.gate, dem);
     const id = { bid: rec.props.id, part: 0, kind: "building" };
     rec.parts = [id];
-    rec.appearance = "triumphal-arch gate modelled from photographs: arch with coffered vault, giant Corinthian columns, attic with inscription and sculpture group, colonnaded wings, end pavilions with reliefs";
+    rec.appearance = "triumphal-arch gate modelled from 25 photographs: arch with coffered vault, giant Corinthian columns, winged figures in the spandrels, medallion, attic inscribed NEO-RENAISSANCE with sculpture group; wings of 4 coupled column pairs per row on a 3-step stylobate; end pavilions with figural reliefs, engraved stone tablets with eagles and armillary-sphere groups";
     rec.modelHeight = 22.5;
     rec.top = topEll;
     instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
@@ -151,6 +152,20 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
     rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
     instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
   }
+  // photo-based models of the other campus buildings (description in campus_details.photo_buildings)
+  for (const [oid, pm] of Object.entries(photoModels)) {
+    if (!byId.has(oid)) continue;
+    const rec = byId.get(oid);
+    const { mesh, topEll } = buildPhotoModel(pm, rec, dem);
+    const id = { bid: oid, part: 0, kind: "building" };
+    rec.parts = [id];
+    rec.appearance = pm.appearance;
+    if (pm.name_en) rec.props.name_en ??= pm.name_en;
+    rec.focusHeading = pm.focus_heading;
+    rec.top = topEll;
+    rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
+    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+  }
   // plaza obelisks (사색의 광장)
   for (const ob of details?.plaza?.obelisks ?? []) {
     const mesh = new Mesh();
@@ -164,7 +179,7 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
   const facade = viewer.scene.primitives.add(new Cesium.Primitive({
     geometryInstances: instances,
     appearance: createFacadeAppearance(),
-    asynchronous: false,
+    asynchronous: true,   // geometry batched in Cesium web workers: keeps the first frame from blocking ~2 s
     compressVertices: false,
     shadows: mobile ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
   }));

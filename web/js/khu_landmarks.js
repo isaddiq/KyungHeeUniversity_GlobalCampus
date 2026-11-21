@@ -9,7 +9,7 @@ const STONE = hex("#ebe7de"), COLC = hex("#f3f0e9"), STAT = hex("#f6f4ef"), REL 
   COF = hex("#ddd6c8"), BRZ = hex("#5e4b2c"), DARK = hex("#3f3b35");
 
 /** Stylised statue (stone): standing, torch-bearer or seated figure of height h. */
-function figure(G, s, t, z, h, kind, col = STAT) {
+export function figure(G, s, t, z, h, kind, col = STAT) {
   if (kind === "seated") {
     G.box({ s0: s - 0.22 * h, s1: s + 0.22 * h, t0: t - 0.2 * h, t1: t + 0.2 * h, z0: z, z1: z + 0.3 * h, col, sty: STY.STATUE });
     G.box({ s0: s - 0.16 * h, s1: s + 0.16 * h, t0: t - 0.42 * h, t1: t - 0.1 * h, z0: z + 0.22 * h, z1: z + 0.36 * h, col, sty: STY.STATUE });
@@ -31,6 +31,59 @@ function figure(G, s, t, z, h, kind, col = STAT) {
     G.cylBetween([s + 0.09 * h, t, z + 0.78 * h], [s + 0.13 * h, t - 0.06 * h, z + 0.5 * h], 0.03 * h, col);
     G.cylBetween([s - 0.09 * h, t, z + 0.78 * h], [s - 0.2 * h, t - 0.1 * h, z + 0.95 * h], 0.03 * h, col);
   }
+}
+
+/** Same frame rotated 90 deg: s' = t, t' = -s (lets wall-plane helpers work on walls facing +-s). */
+const rot90 = (G) => new Local(G.m, G.f, [-G.ax[1], G.ax[0]], G.off);
+
+/** Flat slab polygon in the (s,z) plane, front face at t = tw facing `out`, `th` thick (wings, discs). */
+function slab(G, pts, tw, out, th, col, sty = STY.STATUE) {
+  G.sFace(pts, tw + out * th, out, col, sty);
+  G.sFace(pts, tw, -out, col, sty);
+}
+function disc(G, s, z, r, tw, out, th, col, sty = STY.STATUE, seg = 24) {
+  slab(G, Array.from({ length: seg }, (_, k) => [s + r * Math.cos(k / seg * 2 * Math.PI), z + r * Math.sin(k / seg * 2 * Math.PI)]), tw, out, th, col, sty);
+}
+/** Feathered wing outline (s,z) rooted at (s,z), spreading in direction dir and upward. */
+const wing = (s, z, w, dir) => [[0, 0], [0.35, 0.42], [0.8, 0.78], [1.0, 1.0], [0.86, 0.66], [0.98, 0.58], [0.7, 0.34], [0.78, 0.22], [0.42, 0.06]]
+  .map(([a, b]) => [s + dir * a * w, z + b * w * 0.85]);
+
+/** Winged flying figure in high relief on a wall at t = tw (out = -1/+1 = side it faces); dir = +-1 flight direction along s. */
+function angel(G, s, tw, z, h, out, dir, col = STAT) {
+  const t = tw + out * 0.06 * h;
+  G.cylBetween([s - dir * 0.42 * h, t, z - 0.18 * h], [s + dir * 0.18 * h, t, z + 0.12 * h], 0.08 * h, col);        // body
+  G.cylBetween([s - dir * 0.42 * h, t, z - 0.18 * h], [s - dir * 0.62 * h, t, z - 0.34 * h], 0.05 * h, col);       // trailing robe
+  G.sphere({ s: s + dir * 0.27 * h, t, z: z + 0.18 * h, r: 0.07 * h, col, seg: 8 });
+  G.cylBetween([s + dir * 0.15 * h, t, z + 0.1 * h], [s + dir * 0.55 * h, t, z + 0.22 * h], 0.025 * h, col);       // arm forward
+  slab(G, wing(s - dir * 0.02 * h, z + 0.06 * h, 0.55 * h, -dir), tw, out, 0.05 * h, col);                     // wings swept back
+  slab(G, wing(s + dir * 0.04 * h, z + 0.08 * h, 0.42 * h, -dir).map(([a, b]) => [a, b + 0.05 * h]), tw + out * 0.05 * h, out, 0.04 * h, col);
+}
+
+/** Eagle with spread wings on a globe (above the stone tablets), on a wall at t = tw facing `out`. */
+function eagle(G, s, tw, z, out) {
+  G.sphere({ s, t: tw + out * 0.2, z, r: 0.3, col: STAT, seg: 10 });
+  G.cyl({ s, t: tw + out * 0.2, z0: z + 0.22, z1: z + 0.8, r0: 0.15, r1: 0.09, seg: 8, col: STAT, sty: STY.STATUE });
+  G.sphere({ s, t: tw + out * 0.24, z: z + 0.88, r: 0.1, col: STAT, seg: 6 });
+  for (const dir of [-1, 1]) slab(G, wing(s, z + 0.5, 0.75, dir), tw, out, 0.07, STAT);
+}
+
+/** One figure in high relief (centre-line just in front of the wall plane t = tw). */
+function reliefFigure(G, s, tw, z, h, out, pose) {
+  const t = tw + out * 0.025 * h, col = STAT;
+  G.cylBetween([s, t, z], [s, t, z + 0.3 * h], 0.085 * h, col, STY.STATUE, 9);                  // drapery to the knees
+  G.cylBetween([s, t, z + 0.28 * h], [s, t, z + 0.55 * h], 0.08 * h, col, STY.STATUE, 9);
+  G.cylBetween([s, t, z + 0.53 * h], [s, t, z + 0.8 * h], 0.085 * h, col, STY.STATUE, 9);       // torso
+  G.sphere({ s, t, z: z + 0.88 * h, r: 0.065 * h, col, seg: 8 });
+  if (pose === "raise") G.cylBetween([s + 0.07 * h, t, z + 0.77 * h], [s + 0.16 * h, t, z + 1.08 * h], 0.03 * h, col);
+  else G.cylBetween([s + 0.08 * h, t, z + 0.76 * h], [s + 0.2 * h, t, z + 0.5 * h], 0.028 * h, col);
+  G.cylBetween([s - 0.08 * h, t, z + 0.76 * h], [s - 0.18 * h, t, z + 0.5 * h], 0.028 * h, col);
+}
+
+/** Figural relief group (raised-arm central figure + companions) on the wall plane t = tw. */
+function reliefGroup(G, s, tw, z, h, out) {
+  reliefFigure(G, s, tw, z, h, out, "raise");
+  reliefFigure(G, s - 0.24 * h, tw, z, 0.86 * h, out, "down");
+  reliefFigure(G, s + 0.25 * h, tw, z + 0.05 * h, 0.8 * h, out, "down");
 }
 
 function ring(G, s, t, z, r, col, plane = "sz", seg = 18, w = 0.06) {
@@ -57,9 +110,9 @@ export function buildGateModel(gate, dem) {
   const gz = (s, t = 0) => { const [lo, la] = f.lonlat(ax * s - ay * t, ay * s + ax * t); return dem.heightEllipsoid(lo, la) - g0; };
   const L = gate.length_m, D = gate.depth_m, [o0, o1] = gate.opening_m;
   const om = (o0 + o1) / 2, r = (o1 - o0) / 2;
-  const PW = 4.2, tC = 4.0, tW = D / 2, PV = 6.3;
+  const PW = 4.6, tC = 4.0, tW = D / 2, PV = 6.3;
   const cs0 = o0 - PW, cs1 = o1 + PW;
-  const zs = 8.2, ZA = 14.1, ZE = 15.2, ZT = 18.6, ZTC = 19.0;
+  const zs = 7.4, ZA = 14.1, ZE = 15.2, ZT = 18.6, ZTC = 19.0;
 
   // ---- central triumphal arch ----
   for (const [a, b, outer] of [[cs0, o0, -1], [o1, cs1, 1]]) {
@@ -78,10 +131,14 @@ export function buildGateModel(gate, dem) {
       G.box({ s0: sc - 1.05, s1: sc + 1.05, t0: tcl - 1.05, t1: tcl + 1.05, z0: 2.5, z1: 2.8, col: COLC, sty: STY.CORNICE });
       G.cyl({ s: sc, t: tcl, z0: 2.8, z1: ZA - 0.45, r0: 0.64, r1: 0.55, seg: 18, col: COLC });
       G.box({ s0: sc - 0.85, s1: sc + 0.85, t0: tcl - 0.85, t1: tcl + 0.85, z0: ZA - 0.45, z1: ZA, col: COLC, sty: STY.CORNICE });
-      // winged-figure relief in the spandrel
-      const rs0 = outer < 0 ? inner - 0.6 : inner - 1.0, rs1 = outer < 0 ? inner + 1.0 : inner + 0.6;
-      G.box({ s0: rs0, s1: rs1, t0: tf < 0 ? -tC - 0.12 : tC, t1: tf < 0 ? -tC : tC + 0.12, z0: 11.7, z1: 13.7, col: REL, sty: STY.RELIEF });
+      // winged figure flying towards the keystone in each spandrel (photographed on both faces)
+      angel(G, inner + (outer < 0 ? 0.9 : -0.9), tf * tC, 12.4, 2.6, tf, outer < 0 ? 1 : -1);
     }
+    // engraved stone tablet with an eagle on a globe on the pier side face inside each wing
+    const sf = outer < 0 ? a : b, of = outer < 0 ? -1 : 1;
+    G.box({ s0: Math.min(sf, sf + of * 0.07), s1: Math.max(sf, sf + of * 0.07), t0: -0.75, t1: 0.75, z0: 2.6, z1: 5.0, col: COLC, sty: STY.TABLET,
+      faces: { front: null, back: null, [of < 0 ? "left" : "right"]: STY.TABLET, [of < 0 ? "right" : "left"]: null } });
+    eagle(rot90(G), 0, -sf, 5.5, -of);
   }
   // spandrel faces with the semicircular arch cut out, coffered barrel vault
   const SEG = 32, arc = [];
@@ -96,10 +153,9 @@ export function buildGateModel(gate, dem) {
     G.quad([sA, -tC, zA], [sB, -tC, zB], [sB, tC, zB], [sA, tC, zA], [-Math.cos(a), 0, -Math.sin(a)],
       [[k * ds, 0], [(k + 1) * ds, 0], [(k + 1) * ds, 2 * tC], [k * ds, 2 * tC]], COF, STY.COFFER, 2 * tC, Math.PI * r);
   }
-  G.box({ s0: om - 0.6, s1: om + 0.6, t0: -tC - 0.18, t1: tC + 0.18, z0: zs + r - 0.6, z1: ZA, col: COLC, sty: STY.STATUE }); // keystone
   // entablature, medallions, attic with inscription, crowning sculpture
   G.box({ s0: cs0 - 0.35, s1: cs1 + 0.35, t0: -tC - 0.5, t1: tC + 0.5, z0: ZA, z1: ZE, col: STONE, sty: STY.CORNICE, bottom: true });
-  for (const tf of [-1, 1]) G.cylBetween([om, tf * (tC + 0.45), 14.65], [om, tf * (tC + 0.62), 14.65], 0.42, DARK, STY.BRONZE, 16);
+  for (const tf of [-1, 1]) disc(G, om, ZA - 0.64, 0.6, tf * tC, tf, 0.16, DARK);              // dark medallion in place of a keystone (photos)
   G.box({ s0: cs0 + 0.3, s1: cs1 - 0.3, t0: -tC + 0.3, t1: tC - 0.3, z0: ZE, z1: ZT, col: STONE, faces: { front: STY.ATTIC, back: STY.ATTIC } });
   G.box({ s0: cs0 + 0.05, s1: cs1 - 0.05, t0: -tC + 0.05, t1: tC - 0.05, z0: ZT, z1: ZTC, col: COLC, sty: STY.CORNICE, bottom: true });
   G.box({ s0: om - 1.9, s1: om + 1.9, t0: -1.1, t1: 1.1, z0: ZTC, z1: ZTC + 0.5, col: COLC, sty: STY.ASHLAR });
@@ -116,13 +172,19 @@ export function buildGateModel(gate, dem) {
     const c0 = side < 0 ? p1 : cs1, c1 = side < 0 ? cs0 : p0;
     const low = Math.min(gz(p0), gz(p1), gz(c0), gz(c1)) - 0.6;
     G.box({ s0: c0, s1: c1, t0: -tW, t1: tW, z0: low, z1: 0.7, col: STONE });
-    const n = 5;
+    // three-step stylobate along both faces of the wing (photographed on the street and campus sides)
+    for (const tf of [-1, 1]) for (let k = 0; k < 3; k++) {
+      const tout = tf * (tW + (3 - k) * 0.38);
+      G.box({ s0: c0, s1: c1, t0: Math.min(tf * tW, tout), t1: Math.max(tf * tW, tout), z0: low, z1: 0.7 * (k + 1) / 3, col: STONE });
+    }
+    // 4 coupled pairs of columns per row (counted in the frontal photograph), front and back rows
+    const n = 4;
     for (let k = 0; k < n; k++) {
-      const sc = c0 + (k + 0.5) * (c1 - c0) / n;
-      for (const tc of [-tW + 0.62, tW - 0.62]) {
-        G.box({ s0: sc - 0.5, s1: sc + 0.5, t0: tc - 0.5, t1: tc + 0.5, z0: 0.7, z1: 1.0, col: COLC, sty: STY.STATUE });
-        G.cyl({ s: sc, t: tc, z0: 1.0, z1: 8.05, r0: 0.39, r1: 0.34, seg: 14, col: COLC });
-        G.box({ s0: sc - 0.5, s1: sc + 0.5, t0: tc - 0.5, t1: tc + 0.5, z0: 8.05, z1: 8.3, col: COLC, sty: STY.STATUE });
+      const pc = c0 + (k + 0.5) * (c1 - c0) / n;
+      for (const sc of [pc - 0.82, pc + 0.82]) for (const tc of [-tW + 0.62, tW - 0.62]) {
+        G.box({ s0: sc - 0.55, s1: sc + 0.55, t0: tc - 0.55, t1: tc + 0.55, z0: 0.7, z1: 1.05, col: COLC, sty: STY.STATUE });
+        G.cyl({ s: sc, t: tc, z0: 1.05, z1: 8.0, r0: 0.44, r1: 0.38, seg: 16, col: COLC });
+        G.box({ s0: sc - 0.55, s1: sc + 0.55, t0: tc - 0.55, t1: tc + 0.55, z0: 8.0, z1: 8.3, col: COLC, sty: STY.CORNICE });
       }
     }
     G.box({ s0: c0, s1: c1, t0: -tW + 0.05, t1: tW - 0.05, z0: 8.3, z1: 10.35, col: STONE, sty: STY.CORNICE, bottom: true });
@@ -130,13 +192,20 @@ export function buildGateModel(gate, dem) {
     // end pavilion: relief panel + bronze plaque on both faces, sculpture group with armillary ring
     G.box({ s0: p0, s1: p1, t0: -tW - 0.3, t1: tW + 0.3, z0: low, z1: 10.65, col: STONE });
     G.box({ s0: p0 - 0.3, s1: p1 + 0.3, t0: -tW - 0.6, t1: tW + 0.6, z0: 10.65, z1: 11.35, col: COLC, sty: STY.CORNICE, bottom: true });
-    const rel = side < 0 ? [p0 + 0.6, p0 + 3.8] : [p1 - 3.8, p1 - 0.6];
-    const plq = side < 0 ? [p0 + 4.3, p0 + 5.6] : [p1 - 5.6, p1 - 4.3];
+    // each face: white figural relief on the outer half, framed stone tablet + eagle on the inner half
+    const relC = side < 0 ? p0 + 2.4 : p1 - 2.4;
+    const plq = side < 0 ? [p0 + 4.15, p0 + 5.65] : [p1 - 5.65, p1 - 4.15];
     for (const tf of [-1, 1]) {
       const tf0 = tf * (tW + 0.3);
-      G.box({ s0: rel[0], s1: rel[1], t0: Math.min(tf0, tf0 + tf * 0.14), t1: Math.max(tf0, tf0 + tf * 0.14), z0: 1.6, z1: 8.4, col: REL, sty: STY.RELIEF });
-      G.box({ s0: plq[0], s1: plq[1], t0: Math.min(tf0, tf0 + tf * 0.06), t1: Math.max(tf0, tf0 + tf * 0.06), z0: 2.8, z1: 6.6, col: BRZ, sty: STY.BRONZE });
+      reliefGroup(G, relC, tf0, 2.0, 5.0, tf);
+      G.box({ s0: plq[0], s1: plq[1], t0: Math.min(tf0, tf0 + tf * 0.07), t1: Math.max(tf0, tf0 + tf * 0.07), z0: 2.4, z1: 6.2, col: COLC, sty: STY.TABLET });
+      eagle(G, (plq[0] + plq[1]) / 2, tf0, 6.8, tf);
     }
+    // tablet + eagle on the pavilion's inner face inside the wing
+    const pf = side < 0 ? p1 : p0;
+    G.box({ s0: Math.min(pf, pf - side * 0.07), s1: Math.max(pf, pf - side * 0.07), t0: -0.75, t1: 0.75, z0: 2.6, z1: 5.0, col: COLC, sty: STY.TABLET,
+      faces: { front: null, back: null, [side < 0 ? "right" : "left"]: STY.TABLET, [side < 0 ? "left" : "right"]: null } });
+    eagle(rot90(G), 0, -pf, 5.5, side);
     const pc = (p0 + p1) / 2;
     G.box({ s0: pc - 2.0, s1: pc + 2.0, t0: -1.6, t1: 1.6, z0: 11.35, z1: 12.15, col: COLC, sty: STY.ASHLAR });
     figure(G, pc, -0.2, 12.15, 2.3, "standing");
@@ -439,6 +508,73 @@ export function buildPeaceHall(ph, rec, dem) {
   T.box({ s0: -4.0, s1: 4.0, t0: -4.0, t1: 4.0, z0: 31.6, z1: 32.2, col: WHITE, sty: STY.CORNICE, bottom: true });
   T.cyl({ s: 0, t: 0, z0: 32.2, z1: 37.4, r0: 4.1 * Math.SQRT2, r1: 0.06, seg: 4, a0: Math.PI / 4, col: COPPER, sty: STY.STATUE });
   return { mesh, topEll: datum + 37.4 };
+}
+
+/**
+ * Generic photo-based building (description from build_campus_details.py -> campus_details.photo_buildings).
+ * masses: OSM-footprint extrusions with a facade style (storey grid phased at floor0 above the datum);
+ * prims : boxes, cylinders and profiles in the frame of a footprint edge (+t inward).
+ * z = metres above ground_min (datum).
+ */
+export function buildPhotoModel(pm, rec, dem) {
+  const [lon, lat] = pm.origin;
+  const datum = rec.props.ground_min_m + rec.N;
+  const f = new Frame(lon, lat, datum);
+  const mesh = new Mesh();
+  for (const m of pm.masses) {
+    const rings = [m.ring, ...(m.holes ?? [])];
+    const flat = [], holeStarts = [], f0 = m.floor0 ?? 0, H = m.z1 - f0;
+    const gAt = (p) => { const [lo, la] = f.lonlat(p[0], p[1]); return dem.heightEllipsoid(lo, la) - datum - f0; };
+    for (const [ri, ring] of rings.entries()) {
+      const pts = ring.slice(0, -1);
+      if (ri > 0) holeStarts.push(flat.length);
+      flat.push(...pts.map(([e, n]) => new Cesium.Cartesian2(e, n)));
+      let area = 0;
+      for (let k = 0; k < pts.length; k++) {
+        const a = pts[k], b = pts[(k + 1) % pts.length];
+        area += a[0] * b[1] - b[0] * a[1];
+      }
+      const sign = (ri === 0 ? area > 0 : area <= 0) ? 1 : -1;
+      for (let k = 0; k < pts.length; k++) {
+        const a = pts[k], b = pts[(k + 1) % pts.length];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (len < 0.05) continue;
+        const nrm = f.dir((b[1] - a[1]) / len * sign, -(b[0] - a[0]) / len * sign, 0);
+        const es = ri === 0 ? m.edge_sty?.[k] : null;
+        const [sty, fh, bw, wallHex, phase = 0, span = len] = es ?? [m.sty, m.fh, m.bw, m.wall];
+        const W = [...hex(wallHex), 1], S4 = [fh, bw, sty, H];
+        const ga = m.z0 > 0.5 ? -99 : gAt(a), gb = m.z0 > 0.5 ? -99 : gAt(b);
+        const i0 = mesh.v(f.pt(a[0], a[1], m.z0), nrm, phase, m.z0 - f0, W, S4, [span, ga]);
+        const i1 = mesh.v(f.pt(b[0], b[1], m.z0), nrm, phase + len, m.z0 - f0, W, S4, [span, gb]);
+        const i2 = mesh.v(f.pt(b[0], b[1], m.z1), nrm, phase + len, H, W, S4, [span, gb]);
+        const i3 = mesh.v(f.pt(a[0], a[1], m.z1), nrm, phase, H, W, S4, [span, ga]);
+        mesh.tri(i0, i1, i2); mesh.tri(i0, i2, i3);
+      }
+    }
+    let tri = [];
+    try { tri = Cesium.PolygonPipeline.triangulate(flat, holeStarts); } catch { tri = []; }
+    const up = f.dir(0, 0, 1), RC = [...hex(m.roof), 0];
+    const ids = flat.map(({ x, y }) => mesh.v(f.pt(x, y, m.z1 - (m.parapet ?? 0.9)), up, x, y, RC, [4, 4, 0, 1], [0, 0]));
+    for (let k = 0; k < tri.length; k += 3) mesh.tri(ids[tri[k]], ids[tri[k + 1]], ids[tri[k + 2]]);
+  }
+  for (const p of pm.prims) {
+    const G = new Local(mesh, f, p.ax, p.off);
+    G.fh = p.fh; G.bw = p.bw;
+    const col = hex(p.col);
+    if (p.t === "box") {
+      const faces = {};
+      for (const [k, v] of Object.entries(p.faces ?? {})) faces[k] = v;
+      G.box({ s0: p.s0, s1: p.s1, t0: p.t0, t1: p.t1, z0: p.z0, z1: p.z1,
+        col, sty: p.sty, faces, top: p.top !== false, bottom: p.bottom, zref: p.zref });
+    } else if (p.t === "cyl") {
+      G.cyl({ s: p.s, t: p.t_, z0: p.z0, z1: p.z1, r0: p.r0, r1: p.r1, seg: p.seg, col, sty: p.sty });
+    } else if (p.t === "sphere") {
+      G.sphere({ s: p.s, t: p.t_, z: p.z, r: p.r, sz: p.sz, jit: p.jit, col, sty: STY.FOLIAGE, seg: 12 });
+    } else if (p.t === "profile") {
+      G.profile(p.points, p.t0, p.t1, col);
+    }
+  }
+  return { mesh, topEll: datum + pm.top_m };
 }
 
 /** Extrude a ring given in frame-local metres; styleFor(a, b, len) -> [sty, fh, bw, rgb]. */

@@ -194,8 +194,9 @@ export class CameraController {
   focusBuilding(rec) {
     if (this.isFree()) this.setMode("orbit");
     const r = Math.max(120, rec.sphere.radius * 3.2);
+    const heading = rec.focusHeading == null ? this.camera.heading : CMath.toRadians(rec.focusHeading);
     this.camera.flyToBoundingSphere(rec.sphere, {
-      offset: new HeadingPitchRange(this.camera.heading, CMath.toRadians(-32), r), duration: 1.8,
+      offset: new HeadingPitchRange(heading, CMath.toRadians(-32), r), duration: 1.8,
     });
   }
 

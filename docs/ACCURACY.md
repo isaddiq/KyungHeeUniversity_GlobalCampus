@@ -1,6 +1,6 @@
 # Accuracy & provenance report
 
-Generated 2026-11-21T11:00:38+00:00 by `scripts/validate.py`. The machine-readable versions are [`web/data/accuracy_report.json`](../web/data/accuracy_report.json) and [`web/data/summary.json`](../web/data/summary.json).
+Generated 2026-11-21T13:40:25+00:00 by `scripts/validate.py`. The machine-readable versions are [`web/data/accuracy_report.json`](../web/data/accuracy_report.json) and [`web/data/summary.json`](../web/data/summary.json).
 
 ## Campus
 
@@ -21,7 +21,7 @@ Generated 2026-11-21T11:00:38+00:00 by `scripts/validate.py`. The machine-readab
 | Vertical datum handled (EGM2008 → WGS84 ellipsoid) | pass | N = 23.34–23.79 m over the terrain window (EGM2008 via PROJ (us_nga_egm08_25)); this is added to every DTM height before rendering |
 | DEM grid registration | pass | GeoTIFF GTRasterTypeGeoKey=PixelIsPoint; pixel (0,0) centre = 127.0°E, 38.0°N; 1″ spacing honoured without resampling |
 | Building footprint overlaps | pass | 0 overlapping footprint pairs (>1 m²) among 1104 buildings |
-| Buildings on sloping ground | info | 23 of 41 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats. |
+| Buildings on sloping ground | info | 22 of 41 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats. |
 | Campus building heights | warn | In campus: 1 documented, 1 derived from floor count, 39 estimated. Whole scene: {'documented': 161, 'estimated': 936, 'derived': 7}. OSM and the official KHU pages do not publish heights for most campus buildings. |
 | DSM−DTM as height estimator (rejected) | info | Compared with 160 OSM-documented heights in the context area, Copernicus DSM minus FABDEM underestimated heights by about 45 m (r≈0.1), so it was not used. |
 | Official campus-map buildings matched to footprints | pass | 23/24 official building entries matched to OSM footprints; unmatched: 한방재료가공(경희보감); matched but outside boundary: 0 |
@@ -47,13 +47,13 @@ Generated 2026-11-21T11:00:38+00:00 by `scripts/validate.py`. The machine-readab
 | No. | Name | OSM id | Footprint m² | Ground m | Height m | Status | Height source |
 |---|---|---|---|---|---|---|---|
 | 1 | 경희대학교 국제캠퍼스 정문 | way/473963422 | 328 | 67.3–70.2 | 22.5 | documented | Published guidebook: 조명화, 『캠퍼스투어008 경희대학교』 (Google Books) - gate width 62 m, height 22.5 m (incl. sculpture), 39 sculpted figures, completed 2001 |
-| 2 | 애지원 | way/170482640 | 2099 | 80.3–85.3 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
-| 4 | 우정원 | relation/8269760 | 4137 | 58.5–65.8 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
-| 6 | 공학관 | way/455725718 | 6260 | 78.6–95.1 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
+| 2 | 애지원 | way/170482640 | 2099 | 80.3–85.3 | 21.0 | estimated | estimated from 3 reference photos (5 storeys counted on the south face: ~3.6 m ground floor + 4 x 3.3 m + 0.9 m parapet = 17.7 m above the parking-lot level, which the DTM puts ~3.3 m above the footprint's lowest ground); not a documented value |
+| 4 | 우정원 | relation/8269760 | 4137 | 58.5–59.0 | 24.3 | estimated | Main roof estimated from the east elevation photographs at about 23.8 m above the parking deck (24.3 m above the footprint's lowest ground). Kyung Hee University's Institute of International Education documents seven storeys above ground and one basement. |
+| 6 | 공학관 | way/455725718 | 6260 | 78.6–95.1 | 24.4 | estimated | Photo estimate for the main roof: five levels counted on the west facade and about 17.6 m above the car park, scaled from the 78.1 m OSM facade and adjusted to the lowest ground using FABDEM. The clock fins extend about 4.9 m above the roof. |
 | 7 | 원자로센터 | way/455728923 | 322 | 86.6–89.1 | 8.6 | estimated | estimated: footprint-size heuristic (2 floor(s) x 3.8 m); no documented height or floor count available |
 | 8 | 공학실험동 | way/455728922 | 3689 | 88.2–100.8 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
 | 9 | 체육대학관 | way/455726113 | 7783 | 79.2–93.8 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
-| 10 | 외국어대학관 | way/585696507 | 3646 | 63.7–68.6 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
+| 10 | 외국어대학관 | way/585696507 | 3646 | 62.6–68.5 | 21.4 | estimated | Four levels counted across the stadium-facing classroom block. The highest entrance roof is estimated at 21.4 m above the footprint's lowest FABDEM ground, or about 16.3 m above the entrance forecourt. |
 | 12 | 글로벌관 | way/474085538 | 1281 | 57.5–61.9 | 12.4 | estimated | estimated: footprint-size heuristic (3 floor(s) x 3.8 m); no documented height or floor count available |
 | 12 | 멀티미디어교육관 | way/474085537 | 1806 | 59.7–62.4 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
 | 13 | 제2기숙사 남자동 | relation/6739958 | 1895 | 60.3–79.6 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
@@ -69,7 +69,7 @@ Generated 2026-11-21T11:00:38+00:00 by `scripts/validate.py`. The machine-readab
 | 23 | 학생회관 | way/474085535 | 3635 | 75.5–83.8 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
 | 24 | 경희대학교 국제캠퍼스 중앙도서관 | way/474085534 | 5530 | 74.6–79.3 | 21.0 | estimated | estimated from aerial/oblique photographs of the library (raised podium + ~4 storeys under a giant colonnade, ≈21 m); not a documented value |
 | 29 | 노천극장 | way/474531805 | 5310 | 73.5–93.1 | 2.0 | estimated | estimated: open-air amphitheatre, rendered as low seating mass |
-| 31 | 전자정보대학 | way/474085540 | 6655 | 69.0–83.6 | 16.2 | estimated | estimated: footprint-size heuristic (4 floor(s) x 3.8 m); no documented height or floor count available |
+| 31 | 전자정보대학 | way/474085540 | 6655 | 69.0–83.6 | 22.5 | estimated | Five levels counted on the north facade. The front roof slab is estimated at 22.5 m above the lowest FABDEM ground on the mapped footprint, about 19.2 m above the north entrance apron. |
 | 32 | 국제학관 | way/474085542 | 1511 | 76.8–84.3 | 16.2 | derived | OSM building:levels=4 x 3.8 m/floor |
 | 33 | 천문대 | way/474521125 | 784 | 96.6–103.1 | 12.4 | estimated | estimated: footprint-size heuristic (3 floor(s) x 3.8 m); no documented height or floor count available |
 |  | Emart 24 | way/764320683 | 280 | 65.3–67.7 | 8.6 | estimated | estimated: footprint-size heuristic (2 floor(s) x 3.8 m); no documented height or floor count available |

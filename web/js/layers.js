@@ -1,6 +1,7 @@
 // Geographic feature layers built from the preprocessed GeoJSON (OSM-derived) and DEM.
 import { buildKhuPrimitives } from "./khu_buildings.js";
 import { buildTrees } from "./trees.js";
+import { buildGroundObjects } from "./ground_objects.js";
 const Cesium = window.Cesium;
 
 export async function loadJSON(url) {
@@ -61,11 +62,11 @@ export class CampusLayers {
   }
 
   async load(base, onProgress = () => {}) {
-    let [boundary, buildings, roads, landcover, pois, treesMeta, details] = await Promise.all([
-      loadJSON(`${base}/boundary.geojson`), loadJSON(`${base}/buildings.geojson`),
-      loadJSON(`${base}/roads.geojson`), loadJSON(`${base}/landcover.geojson`),
-      loadJSON(`${base}/pois.geojson`), loadJSON(`${base}/trees.json`),
-      loadJSON(`${base}/campus_details.json`).catch(() => null),
+    // campus-only browser subsets (scripts/build_web_subset.py); the full files are the fallback
+    const sub = (name) => loadJSON(`${base}/${name}_campus.geojson`).catch(() => loadJSON(`${base}/${name}.geojson`));
+    let [boundary, buildings, roads, landcover, pois, details] = await Promise.all([
+      loadJSON(`${base}/boundary.geojson`), sub("buildings"), sub("roads"), sub("landcover"),
+      loadJSON(`${base}/pois.geojson`), loadJSON(`${base}/campus_details.json`).catch(() => null),
     ]);
     const ground = await loadJSON(`${base}/ground.json`).catch(() => null);
     this.details = details;
@@ -85,11 +86,29 @@ export class CampusLayers {
     this.addBuildings(buildings);
     this.addLabels();
     this.addPois(pois);
-    onProgress("Placing vegetation…");
-    const treeBuf = await (await fetch(`${base}/trees.bin`)).arrayBuffer();
-    const tr = buildTrees(this.viewer, this.dem, treesMeta, new Float32Array(treeBuf), this.inClip, this.mobile);
-    this.treePrimitive = tr.prim; this.treeCount = tr.total;
+    // vegetation is added after the campus is on screen, in small chunks between frames (it used to block
+    // the main thread for ~3 s); treePrimitive is a collection so layer toggles work while it fills
+    this.treePrimitive = this.viewer.scene.primitives.add(new Cesium.PrimitiveCollection());
+    this.treeCount = 0;
+    this.base = base;
     return { boundary, buildings };
+  }
+
+  /** Builds the vegetation once (light mode skips this until vegetation is switched on). */
+  loadTrees() {
+    const base = this.base;
+    return this.treesReady ??= (async () => {
+      let meta, buf;
+      try {
+        meta = await loadJSON(`${base}/trees_campus.json`);
+        buf = await (await fetch(`${base}/trees_campus.bin`)).arrayBuffer();
+      } catch {
+        meta = await loadJSON(`${base}/trees.json`);
+        buf = await (await fetch(`${base}/trees.bin`)).arrayBuffer();
+      }
+      await new Promise((r) => setTimeout(r, 250));
+      this.treeCount = await buildTrees(this.viewer, this.dem, meta, new Float32Array(buf), this.inClip, this.mobile, this.treePrimitive);
+    })();
   }
 
   // ---------------------------------------------------------------- buildings
@@ -104,12 +123,17 @@ export class CampusLayers {
       const base = p.ground_min_m - 1.5 + N; // embed slightly: no floating on sloped sites
       const top = p.ground_min_m + p.height_m + N;
       const rec = { props: p, feature: f, parts: [], N, base, top, positions: [], detailed: p.in_campus };
+      const courtyard = this.details?.photo_buildings?.[p.id]?.open_courtyard;
       ringsOf(f.geometry).forEach((poly, k) => {
         const id = { bid: p.id, part: k, kind: "building" };
         rec.parts.push(id);
         const h = hierarchy(poly);
         rec.positions.push(...h.positions);
-        if (!noCollide.has(p.id)) this.footprintIndex.push({ id: p.id, ring: poly[0], bbox: bboxOf(poly[0]) });
+        if (!noCollide.has(p.id)) {
+          const holes = poly.slice(1);
+          if (courtyard) holes.push(courtyard);
+          this.footprintIndex.push({ id: p.id, ring: poly[0], holes, bbox: bboxOf(poly[0]) });
+        }
         if (rec.detailed) return; // campus buildings get the enhanced facade model
         instances.push(new Cesium.GeometryInstance({
           id,
@@ -189,7 +213,7 @@ export class CampusLayers {
     for (const f of this.footprintIndex) {
       const b = f.bbox;
       if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
-      if (pointInRing(lon, lat, f.ring)) return f.id;
+      if (pointInRing(lon, lat, f.ring) && !f.holes.some((hole) => pointInRing(lon, lat, hole))) return f.id;
     }
     return null;
   }
@@ -213,6 +237,21 @@ export class CampusLayers {
         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 4200),
         scaleByDistance: new Cesium.NearFarScalar(250, 1.05, 4000, 0.62),
         disableDepthTestDistance: 0, // labels are hidden behind structures and terrain
+        id: { bid: p.id, kind: "building" },
+      });
+      if (p.name_en) this.labels.add({      // English name: second, smaller line, only when close enough to read
+        position: Cesium.Cartesian3.fromDegrees(lon, lat, rec.top + 4),
+        text: p.name_en,
+        font: "500 11.5px 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif",
+        fillColor: Cesium.Color.fromCssColorString("#f3f3f0"),
+        outlineColor: Cesium.Color.fromCssColorString("#111"),
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.TOP,
+        pixelOffset: new Cesium.Cartesian2(0, 2),
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 900),
+        scaleByDistance: new Cesium.NearFarScalar(250, 1.0, 900, 0.8),
+        disableDepthTestDistance: 0,
         id: { bid: p.id, kind: "building" },
       });
     }
@@ -260,8 +299,12 @@ export class CampusLayers {
 
   // ---------------------------------------------------------------- ground surfaces (fields, courts, parking, roads, markings)
   addGround(g) {
-    const FILL = { grass: "#6e9a4c", garden: "#7cab55", plaza: "#dcd7cb", paving: "#d4cec1", dirt: "#c6a57b", turf: "#3e8a3d",
-      court_surround: "#4d7f69", court_out: "#3f7a5c", court_in: "#3a6d9c", court_bb: "#c4703e", parking: "#56595d", forest: "#4b5e35" };
+    const FILL = { grass: "#6e9a4c", garden: "#7cab55", plaza: "#dcd7cb", paving: "#d4cec1", dirt: "#c6a57b", turf: "#3d9140",
+      court_surround: "#4d7f69", court_out: "#3f7a5c", court_in: "#3a6d9c", court_bb: "#c4703e", parking: "#56595d", forest: "#4b5e35", water: "#4f8fb8",
+      turf2: "#4aa047", court_bbg: "#3fae7c", court_key: "#c9654b", brick: "#c48c78",
+      asphalt: "#4a4d51", gravel: "#bba98a", path: "#b99c76", steps: "#d2ccbf", asphalt_red: "#a85a4a", tread: "#8a857b",
+      line_white: "#f4f4f4", line_yellow: "#f2c230", line_dark: "#262626", sidewalk: "#9b625b", kerb: "#d3cfc6",
+      terrace: "#a9a8a1", sand: "#d3b98e", field: "#6a9a46" };
     const LINE = { road_asphalt: "#4a4d51", road_paving: "#d8d2c5", road_gravel: "#bba98a", road_path: "#b99c76", road_steps: "#d2ccbf",
       road_asphalt_red: "#a85a4a", centre_yellow: "#f2c230", centre_white: "#f4f4f4", paint: "#ffffff", net: "#262626",
       stall: "#f0f0f0", tread: "#8a857b" };
@@ -269,11 +312,14 @@ export class CampusLayers {
     const fills = [], forest = [];
     for (const f of g.fills) {
       try {
+        const geometry = new Cesium.PolygonGeometry({ polygonHierarchy: new Cesium.PolygonHierarchy(
+          Cesium.Cartesian3.fromDegreesArray(f.c[0].slice(0, -1).flat()),
+          f.c.slice(1).map((h) => new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(h.slice(0, -1).flat())))) });
+        // a polygon whose geometry comes out empty is dropped by Cesium inside the batch, which shifts the
+        // per-instance colours/ids of the following instances (e.g. a plaza drawn in the park's grass colour)
+        if (!Cesium.PolygonGeometry.createGeometry(geometry)) continue;
         (f.k === "forest" ? forest : fills).push(new Cesium.GeometryInstance({
-          id: { kind: "ground", props: { kind: f.k, id: f.src } },
-          geometry: new Cesium.PolygonGeometry({ polygonHierarchy: new Cesium.PolygonHierarchy(
-            Cesium.Cartesian3.fromDegreesArray(f.c[0].slice(0, -1).flat()),
-            f.c.slice(1).map((h) => new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(h.slice(0, -1).flat())))) }),
+          id: { kind: "ground", props: { kind: f.k, id: f.src } }, geometry,
           attributes: { color: col(FILL[f.k] || "#999999") },
         }));
       } catch { /* degenerate polygon */ }
@@ -294,13 +340,18 @@ export class CampusLayers {
       geometryInstances: forest, classificationType: T,
       appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false }), show: false,
     })) : null;
-    this.landcoverPrimitives = [prims.add(new Cesium.GroundPrimitive({
-      geometryInstances: fills, classificationType: T,
+    // one primitive per surface kind: if Cesium drops a degenerate instance inside a batch, the per-instance
+    // attributes of the following instances shift; within a single-colour batch that cannot recolour anything
+    const byKind = new Map();
+    for (const inst of fills) { const k = inst.id.props.kind; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(inst); }
+    this.landcoverPrimitives = [...byKind.values()].map((arr) => prims.add(new Cesium.GroundPrimitive({
+      geometryInstances: arr, classificationType: T,
       appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false }),
-    }))];
+    })));
     this.roadPrimitives = [surf, marks].filter((a) => a.length).map((a) => prims.add(new Cesium.GroundPolylinePrimitive({
       geometryInstances: a, classificationType: T, appearance: new Cesium.PolylineColorAppearance({ translucent: false }),
     })));
+    this.groundObjectPrimitives = buildGroundObjects(this.viewer, this.dem, g.objects, this.mobile);
   }
 
   // ---------------------------------------------------------------- landcover
@@ -478,3 +529,4 @@ function pointInRing(x, y, ring) {
   }
   return inside;
 }
+window.__CL = CampusLayers; // timing hook for automated checks

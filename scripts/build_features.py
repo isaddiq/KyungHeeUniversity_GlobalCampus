@@ -31,6 +31,7 @@ M_PER_DLON = 111_320.0 * math.cos(math.radians(LAT_C))
 FLOOR_H_RES = 2.87   # m/floor: median height/levels of 160 OSM-documented buildings in this area
 FLOOR_H_INST = 3.8   # m/floor: typical institutional storey height (assumption, labelled estimated)
 
+MAIN_DRIVE = {"way/764171420": 9.5, "way/164635797": 9.5}   # gate -> 사색의 광장 boulevard (photos: ~9-10 m, 2 wide lanes)
 ROAD_WIDTH_DEFAULT = {  # metres, carriageway/pavement width defaults by OSM class (estimated)
     "motorway": 24, "trunk": 20, "trunk_link": 8, "primary": 16, "primary_link": 7,
     "secondary": 12, "secondary_link": 7, "tertiary": 9, "tertiary_link": 6,
@@ -239,12 +240,19 @@ def main():
         status_count[h_status] += 1
 
         offi = xwalk.get(oid, [])
+        levels_source = ov.get("levels_source") if ov else None
+        levels_status = None
+        if levels and (t.get("building:levels") or levels_source):
+            levels_status = "documented"
+        elif levels and ov and ov.get("levels"):
+            levels_status = "documented" if ov.get("status", "documented") == "documented" else "counted from photographs"
         props = {
             "id": oid,
             "official_no": offi[0]["no"] if offi else None,
             "official_name_ko": offi[0]["name_ko"] if offi else None,
             "name_ko": name_ko,
-            "name_en": t.get("name:en"),
+            "name_en": t.get("name:en") or ((offi[0].get("name_en_by_osm") or {}).get(oid) or offi[0].get("name_en") if offi else None),
+            "name_en_source": "OSM name:en" if t.get("name:en") else ("campus-map list (descriptive translation)" if offi else None),
             "building_type": btype,
             "in_campus": in_campus,
             "centroid": [round(rp.x, 7), round(rp.y, 7)],
@@ -252,7 +260,8 @@ def main():
             "ground_min_m": round(gmin, 2), "ground_max_m": round(gmax, 2), "ground_mean_m": round(gmean, 2),
             "height_m": round(height, 1), "height_status": h_status, "height_source": h_src,
             "height_confidence": conf,
-            "levels": levels, "levels_status": ("documented" if levels and (t.get("building:levels") or (ov and ov.get("levels"))) else None),
+            "levels": levels, "levels_status": levels_status,
+            **({"levels_source": levels_source} if levels_source else {}),
             "roof_shape": t.get("roof:shape") or "flat (not mapped; LOD1)",
             "start_date": t.get("start_date"),
             "footprint_source": "OpenStreetMap (" + oid + ")" + (f", source={t['source']}" if t.get("source") else ""),
@@ -305,9 +314,21 @@ def main():
             width, w_status = w_tag, "OSM width tag"
         elif lanes and hw not in ("footway", "path", "steps", "pedestrian"):
             width, w_status = lanes * 3.3, f"derived: lanes={lanes:g} x 3.3 m"
+        elif hw == "service" and campus_prep.intersects(g):
+            # campus roads (all highway=service in OSM): widths estimated from the reference photos in
+            # kyunghee pictures/outdoor/campus-main-road (two-lane roads with a centre line, wide boulevard from the gate)
+            if oid in MAIN_DRIVE:
+                width = MAIN_DRIVE[oid]
+            elif t.get("service") == "parking_aisle":
+                width = 5.5
+            elif t.get("oneway") == "yes":
+                width = 4.5
+            else:
+                width = 6.5
+            w_status = "estimated from reference photographs (campus road type)"
         else:
             width, w_status = ROAD_WIDTH_DEFAULT.get(hw, 3.0), "estimated: default width for highway class"
-        props = {"id": oid, "highway": hw, "name": t.get("name"), "name_en": t.get("name:en"),
+        props = {"id": oid, "highway": hw, "service": t.get("service"), "name": t.get("name"), "name_en": t.get("name:en"),
                  "width_m": round(width, 1), "width_status": w_status, "surface": t.get("surface"),
                  "layer": t.get("layer"), "bridge": t.get("bridge"), "tunnel": t.get("tunnel"),
                  "oneway": t.get("oneway"), "area": is_area,
@@ -419,12 +440,36 @@ def main():
             th = float(np.clip(chm * 1.4 + 5.0, 6.0, 19.0)) * (0.8 + 0.4 * hash01(ix, iy, 4))
             trees.append((jx - west, jy - south, ground, th, 1 if in_veg else 0))
             src_counter["osm_wood" if in_veg else "chm"] += 1
+    # OSM-mapped individual trees (natural=tree) and tree rows (natural=tree_row, sampled every 7 m): real positions
+    mapped = []
+    for el in els:
+        t = el.get("tags", {})
+        if el["type"] == "node" and t.get("natural") == "tree":
+            pts_ = [(el["lon"], el["lat"])]
+        elif el["type"] == "way" and t.get("natural") == "tree_row" and el.get("geometry"):
+            ln = LineString([(q["lon"], q["lat"]) for q in el["geometry"]])
+            n_ = max(1, int(ln.length * M_PER_DLON / 7.0))
+            pts_ = [ln.interpolate(k / n_, normalized=True).coords[0] for k in range(n_ + 1)]
+        else:
+            continue
+        hh = parse_num(t.get("height")) or 9.0
+        for k_, (lon_, lat_) in enumerate(pts_):
+            mapped.append((lon_ - west, lat_ - south, float(dtm.sample(lon_, lat_)), float(hh) * (0.9 + 0.2 * hash01(el["id"] % 100000, k_, 5))))
+    if mapped:
+        mp = np.array([[q[0] * M_PER_DLON, q[1] * M_PER_DLAT] for q in mapped])
+        def far_from_mapped(tr):
+            x, y = tr[0] * M_PER_DLON, tr[1] * M_PER_DLAT
+            return float(np.min(np.hypot(mp[:, 0] - x, mp[:, 1] - y))) > 4.0
+        trees = [tr for tr in trees if far_from_mapped(tr)]
+    src_counter["osm_mapped_tree"] = len(mapped)
+    trees = [(*q, 2) for q in mapped] + trees
     arr = np.array([t[:4] for t in trees], dtype="<f4")
     arr.tofile(WEB_DATA / "trees.bin")
     write_json(WEB_DATA / "trees.json", {
         "count": len(trees), "origin_lon": west, "origin_lat": south,
         "layout": "float32 LE x4 per tree: dlon_deg, dlat_deg (from origin), ground_orthometric_m, tree_height_m",
-        "status": "VISUAL APPROXIMATION - not surveyed tree positions",
+        "status": "VISUAL APPROXIMATION - not surveyed tree positions, except the first 'mapped_count' entries, which are OSM-mapped trees (natural=tree / tree_row) at their mapped positions (heights estimated)",
+        "mapped_count": len(mapped),
         "method": ("Jittered 10 m grid. A grid point becomes a tree when it lies in an OSM natural=wood/"
                    "landuse=forest polygon, or where canopy height (Copernicus DSM - FABDEM DTM) >= 3.5 m; "
                    "excluded within 5 m of buildings (22 m for canopy-derived points), on roads, pitches, "

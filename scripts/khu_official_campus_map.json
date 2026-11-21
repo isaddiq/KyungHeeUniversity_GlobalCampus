@@ -7,38 +7,300 @@
   "retrieved": "2026-11-21",
   "note": "'no' is the sequence number printed in the official campus-map list (1-33); the pages do not call it a building code. English names are not given on these pages. osm_ids is the manual crosswalk to OpenStreetMap features made for this project by name matching (verified against footprint location).",
   "entries": [
-    {"no": 1,  "name_ko": "정문(새천년기념탑:네오르네상스문)", "kind": "building", "osm": ["way/473963422"]},
-    {"no": 2,  "name_ko": "애지원", "kind": "building", "osm": ["way/170482640"]},
-    {"no": 3,  "name_ko": "르네상스공원", "kind": "open_space", "osm": ["way/455726192"]},
-    {"no": 4,  "name_ko": "우정원", "kind": "building", "osm": ["relation/8269760"]},
-    {"no": 5,  "name_ko": "인조잔디구장/지하주차장", "kind": "open_space", "osm": []},
-    {"no": 6,  "name_ko": "공학관", "kind": "building", "osm": ["way/455725718"]},
-    {"no": 7,  "name_ko": "원자로센터", "kind": "building", "osm": ["way/455728923"]},
-    {"no": 8,  "name_ko": "공학실험동", "kind": "building", "osm": ["way/455728922"]},
-    {"no": 9,  "name_ko": "체육대학관", "kind": "building", "osm": ["way/455726113"]},
-    {"no": 10, "name_ko": "외국어대학관", "kind": "building", "osm": ["way/585696507"]},
-    {"no": 11, "name_ko": "경희공원", "kind": "open_space", "osm": []},
-    {"no": 12, "name_ko": "멀티미디어교육관·글로벌관", "kind": "building", "osm": ["way/474085537", "way/474085538"]},
-    {"no": 13, "name_ko": "제2기숙사", "kind": "building", "osm": ["relation/6739958", "relation/6739964"]},
-    {"no": 14, "name_ko": "대운동장", "kind": "open_space", "osm": ["way/455725379"]},
-    {"no": 15, "name_ko": "도예관", "kind": "building", "osm": ["way/474521123"]},
-    {"no": 16, "name_ko": "원예생명공학 온실", "kind": "building", "osm": ["way/474521122"]},
-    {"no": 17, "name_ko": "선승관", "kind": "building", "osm": ["way/585696506"]},
-    {"no": 18, "name_ko": "생명과학대학관", "kind": "building", "osm": ["way/474521121"]},
-    {"no": 19, "name_ko": "한방재료가공(경희보감)", "kind": "building", "osm": []},
-    {"no": 20, "name_ko": "실험연구동", "kind": "building", "osm": ["way/778946313", "way/801815069"]},
-    {"no": 21, "name_ko": "예술·디자인대학관", "kind": "building", "osm": ["way/474085536"]},
-    {"no": 22, "name_ko": "국제·경영대학관", "kind": "building", "osm": ["way/474085539"]},
-    {"no": 23, "name_ko": "학생회관", "kind": "building", "osm": ["way/474085535"]},
-    {"no": 24, "name_ko": "중앙도서관(대학본부)", "kind": "building", "osm": ["way/474085534"]},
-    {"no": 25, "name_ko": "사색의 광장", "kind": "open_space", "osm": ["way/585696477"]},
-    {"no": 26, "name_ko": "주차장/노선버스종점", "kind": "open_space", "osm": []},
-    {"no": 27, "name_ko": "종합운동장", "kind": "open_space", "osm": []},
-    {"no": 28, "name_ko": "야구경기장", "kind": "open_space", "osm": []},
-    {"no": 29, "name_ko": "평화노천극장", "kind": "building", "osm": ["way/474531805"]},
-    {"no": 30, "name_ko": "연못", "kind": "open_space", "osm": []},
-    {"no": 31, "name_ko": "전자정보/응용과학대학관", "kind": "building", "osm": ["way/474085540"]},
-    {"no": 32, "name_ko": "국제학관", "kind": "building", "osm": ["way/474085542"]},
-    {"no": 33, "name_ko": "천문대", "kind": "building", "osm": ["way/474521125"]}
-  ]
+    {
+      "no": 1,
+      "name_ko": "정문(새천년기념탑:네오르네상스문)",
+      "kind": "building",
+      "osm": [
+        "way/473963422"
+      ],
+      "name_en": "Neo-Renaissance Main Gate"
+    },
+    {
+      "no": 2,
+      "name_ko": "애지원",
+      "kind": "building",
+      "osm": [
+        "way/170482640"
+      ],
+      "name_en": "Aejiwon"
+    },
+    {
+      "no": 3,
+      "name_ko": "르네상스공원",
+      "kind": "open_space",
+      "osm": [
+        "way/455726192"
+      ],
+      "name_en": "Renaissance Park"
+    },
+    {
+      "no": 4,
+      "name_ko": "우정원",
+      "kind": "building",
+      "osm": [
+        "relation/8269760"
+      ],
+      "name_en": "Woojungwon Dormitory"
+    },
+    {
+      "no": 5,
+      "name_ko": "인조잔디구장/지하주차장",
+      "kind": "open_space",
+      "osm": [],
+      "name_en": "Artificial Turf Field and Underground Parking"
+    },
+    {
+      "no": 6,
+      "name_ko": "공학관",
+      "kind": "building",
+      "osm": [
+        "way/455725718"
+      ],
+      "name_en": "College of Engineering"
+    },
+    {
+      "no": 7,
+      "name_ko": "원자로센터",
+      "kind": "building",
+      "osm": [
+        "way/455728923"
+      ],
+      "name_en": "Reactor Center"
+    },
+    {
+      "no": 8,
+      "name_ko": "공학실험동",
+      "kind": "building",
+      "osm": [
+        "way/455728922"
+      ],
+      "name_en": "Engineering Laboratory Building"
+    },
+    {
+      "no": 9,
+      "name_ko": "체육대학관",
+      "kind": "building",
+      "osm": [
+        "way/455726113"
+      ],
+      "name_en": "College of Physical Education"
+    },
+    {
+      "no": 10,
+      "name_ko": "외국어대학관",
+      "kind": "building",
+      "osm": [
+        "way/585696507"
+      ],
+      "name_en": "College of Foreign Languages"
+    },
+    {
+      "no": 11,
+      "name_ko": "경희공원",
+      "kind": "open_space",
+      "osm": [],
+      "name_en": "Kyung Hee Park"
+    },
+    {
+      "no": 12,
+      "name_ko": "멀티미디어교육관·글로벌관",
+      "kind": "building",
+      "osm": [
+        "way/474085537",
+        "way/474085538"
+      ],
+      "name_en": "Multimedia Education Hall and Global Hall",
+      "name_en_by_osm": {
+        "way/474085537": "Multimedia Education Hall",
+        "way/474085538": "Global Hall"
+      }
+    },
+    {
+      "no": 13,
+      "name_ko": "제2기숙사",
+      "kind": "building",
+      "osm": [
+        "relation/6739958",
+        "relation/6739964"
+      ],
+      "name_en": "Second Dormitory",
+      "name_en_by_osm": {
+        "relation/6739958": "Second Dormitory (men's wing)",
+        "relation/6739964": "Second Dormitory (women's wing)"
+      }
+    },
+    {
+      "no": 14,
+      "name_ko": "대운동장",
+      "kind": "open_space",
+      "osm": [
+        "way/455725379"
+      ],
+      "name_en": "Grand Stadium"
+    },
+    {
+      "no": 15,
+      "name_ko": "도예관",
+      "kind": "building",
+      "osm": [
+        "way/474521123"
+      ],
+      "name_en": "Ceramics Hall"
+    },
+    {
+      "no": 16,
+      "name_ko": "원예생명공학 온실",
+      "kind": "building",
+      "osm": [
+        "way/474521122"
+      ],
+      "name_en": "Horticultural Biotechnology Greenhouse"
+    },
+    {
+      "no": 17,
+      "name_ko": "선승관",
+      "kind": "building",
+      "osm": [
+        "way/585696506"
+      ],
+      "name_en": "Seonseung Hall"
+    },
+    {
+      "no": 18,
+      "name_ko": "생명과학대학관",
+      "kind": "building",
+      "osm": [
+        "way/474521121"
+      ],
+      "name_en": "College of Life Sciences"
+    },
+    {
+      "no": 19,
+      "name_ko": "한방재료가공(경희보감)",
+      "kind": "building",
+      "osm": [],
+      "name_en": "Kyung Hee Bogam and Farm Building"
+    },
+    {
+      "no": 20,
+      "name_ko": "실험연구동",
+      "kind": "building",
+      "osm": [
+        "way/778946313",
+        "way/801815069"
+      ],
+      "name_en": "Experimental Research Building"
+    },
+    {
+      "no": 21,
+      "name_ko": "예술·디자인대학관",
+      "kind": "building",
+      "osm": [
+        "way/474085536"
+      ],
+      "name_en": "College of Art and Design"
+    },
+    {
+      "no": 22,
+      "name_ko": "국제·경영대학관",
+      "kind": "building",
+      "osm": [
+        "way/474085539"
+      ],
+      "name_en": "International Business and Management Building"
+    },
+    {
+      "no": 23,
+      "name_ko": "학생회관",
+      "kind": "building",
+      "osm": [
+        "way/474085535"
+      ],
+      "name_en": "Student Union"
+    },
+    {
+      "no": 24,
+      "name_ko": "중앙도서관(대학본부)",
+      "kind": "building",
+      "osm": [
+        "way/474085534"
+      ],
+      "name_en": "Central Library and University Headquarters"
+    },
+    {
+      "no": 25,
+      "name_ko": "사색의 광장",
+      "kind": "open_space",
+      "osm": [
+        "way/585696477"
+      ],
+      "name_en": "Philosophers' Square"
+    },
+    {
+      "no": 26,
+      "name_ko": "주차장/노선버스종점",
+      "kind": "open_space",
+      "osm": [],
+      "name_en": "Parking and Bus Terminus"
+    },
+    {
+      "no": 27,
+      "name_ko": "종합운동장",
+      "kind": "open_space",
+      "osm": [],
+      "name_en": "Southern Sports Ground"
+    },
+    {
+      "no": 28,
+      "name_ko": "야구경기장",
+      "kind": "open_space",
+      "osm": [],
+      "name_en": "Baseball Fields"
+    },
+    {
+      "no": 29,
+      "name_ko": "평화노천극장",
+      "kind": "building",
+      "osm": [
+        "way/474531805"
+      ],
+      "name_en": "Peace Amphitheatre"
+    },
+    {
+      "no": 30,
+      "name_ko": "연못",
+      "kind": "open_space",
+      "osm": [],
+      "name_en": "Peace Amphitheatre Pond"
+    },
+    {
+      "no": 31,
+      "name_ko": "전자정보/응용과학대학관",
+      "kind": "building",
+      "osm": [
+        "way/474085540"
+      ],
+      "name_en": "College of Electronics and Information / Applied Sciences"
+    },
+    {
+      "no": 32,
+      "name_ko": "국제학관",
+      "kind": "building",
+      "osm": [
+        "way/474085542"
+      ],
+      "name_en": "International Studies Building"
+    },
+    {
+      "no": 33,
+      "name_ko": "천문대",
+      "kind": "building",
+      "osm": [
+        "way/474521125"
+      ],
+      "name_en": "Astronomical Observatory"
+    }
+  ],
+  "name_en_source": "English names follow the place list of the user's reference photo collection (kyunghee pictures/README.md), which follows the official KHU Global Campus map numbering; they are descriptive translations, not verified official names"
 }

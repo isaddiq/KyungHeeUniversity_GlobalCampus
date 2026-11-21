@@ -42,10 +42,77 @@ export class DemGrid {
     const ox = Math.max(0, -fxRaw, fxRaw - (this.cols - 1)) * 24.6; // ~metres outside
     const oy = Math.max(0, -fyRaw, fyRaw - (this.rows - 1)) * 30.9;
     const out = Math.hypot(ox, oy);
-    if (out <= 0) return v;
+    if (out <= 0) return this.mods ? this.applyMods(lon, lat, v) : v;
     const t = Math.min(1, out / 2000);
     const s = t * t * (3 - 2 * t);
     return v * (1 - s) + this.edgeMean * s;
+  }
+
+  /**
+   * Local terrain conditioning (terrain_mods.json, estimated): "bowl" shapes a stadium below the DTM.
+   * "level" sets a flat grade for an entrance or courtyard, blending into the DTM along the boundary.
+   */
+  setMods(mods) {
+    this.mods = (mods || []).filter((m) => m.type === "bowl" || m.type === "level" || m.type === "platform").map((m) => {
+      if (m.type === "platform") {   // levelled site (several rings) + cut slope back up to the DTM
+        const rings = m.rings, lat0 = rings[0][0][1], mx = 111320 * Math.cos(lat0 * Math.PI / 180), my = 110950;
+        const xs = rings.flat().map((p) => p[0]), ys = rings.flat().map((p) => p[1]), reach = 40 / Math.max(m.slope, 1e-3);
+        return { ...m, mx, my, bbox: [Math.min(...xs) - reach / mx, Math.min(...ys) - reach / my, Math.max(...xs) + reach / mx, Math.max(...ys) + reach / my] };
+      }
+      const lat0 = m.ring[0][1], mx = 111320 * Math.cos(lat0 * Math.PI / 180), my = 110950;
+      const xs = m.ring.map((p) => p[0]), ys = m.ring.map((p) => p[1]);
+      return { ...m, mx, my, bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] };
+    });
+    if (!this.mods.length) this.mods = null;
+  }
+
+  applyMods(lon, lat, v) {
+    for (const m of this.mods) {
+      const b = m.bbox;
+      if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+      if (m.type === "platform") { v = this.platformHeight(m, lon, lat, v); continue; }
+      const r = m.ring;
+      let inside = false, dmin = Infinity;
+      for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+        const [xi, yi] = r[i], [xj, yj] = r[j];
+        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+        const ax = (xj - xi) * m.mx, ay = (yj - yi) * m.my, px = (lon - xi) * m.mx, py = (lat - yi) * m.my;
+        const t = Math.max(0, Math.min(1, (px * ax + py * ay) / (ax * ax + ay * ay || 1)));
+        dmin = Math.min(dmin, Math.hypot(px - ax * t, py - ay * t));
+      }
+      if (!inside) continue;
+      if (m.type === "level") {
+        const t = Math.min(1, dmin / m.ramp_m), s = t * t * (3 - 2 * t);
+        return v * (1 - s) + m.height_m * s;
+      }
+      // retaining slope over the first ramp_m inside the outline (no cliff exactly on the outline, which
+      // rendered as saw-teeth), then steps of equal tread down to the level field
+      const ramp = m.ramp_m ?? 0, tread = (m.stands_m - ramp) / m.steps;
+      const k = Math.floor(Math.max(0, dmin - ramp) / tread);    // 0 = top step
+      const above = k >= m.steps ? 0 : (m.steps - k) * m.rise_m;
+      const h = Math.max(m.field_m, Math.min(v, m.field_m + above));
+      if (dmin >= ramp) return h;
+      const t = dmin / ramp, s = t * t * (3 - 2 * t);
+      return v * (1 - s) + h * s;
+    }
+    return v;
+  }
+
+  /** "platform": ground = level_m inside the rings; outside, a cut slope rising at m.slope back to the DTM (only lowers). */
+  platformHeight(m, lon, lat, v) {
+    let inside = false, dmin = Infinity;
+    for (const r of m.rings) {
+      let inR = false;
+      for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+        const [xi, yi] = r[i], [xj, yj] = r[j];
+        if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inR = !inR;
+        const ax = (xj - xi) * m.mx, ay = (yj - yi) * m.my, px = (lon - xi) * m.mx, py = (lat - yi) * m.my;
+        const t = Math.max(0, Math.min(1, (px * ax + py * ay) / (ax * ax + ay * ay || 1)));
+        dmin = Math.min(dmin, Math.hypot(px - ax * t, py - ay * t));
+      }
+      inside = inside || inR;
+    }
+    return Math.min(v, inside ? m.level_m : m.level_m + m.slope * dmin);
   }
 
   /** EGM2008 geoid undulation N (m), bilinear on the 9x9 PROJ-derived grid (clamped). */
@@ -84,7 +151,12 @@ export class DemGrid {
 export async function loadDem(base) {
   const meta = await (await fetch(`${base}/dtm.json`)).json();
   const buf = await (await fetch(`${base}/dtm.bin`)).arrayBuffer();
-  return new DemGrid(meta, buf);
+  const dem = new DemGrid(meta, buf);
+  try {
+    const r = await fetch(`${base}/terrain_mods.json`);
+    if (r.ok) dem.setMods((await r.json()).mods);
+  } catch { /* no local conditioning */ }
+  return dem;
 }
 
 export function createTerrainProvider(dem) {

@@ -4,14 +4,22 @@
 import { Mesh, Frame, Local, STY } from "./mesh.js";
 const Cesium = window.Cesium;
 
-export function buildTrees(viewer, dem, meta, arr, inClip, mobile) {
+/**
+ * Builds the trees in chunks of ~250 into `coll` (a PrimitiveCollection), yielding to the browser between
+ * chunks so the page stays responsive while vegetation fills in. Resolves with the number of trees.
+ */
+export async function buildTrees(viewer, dem, meta, arr, inClip, mobile, coll) {
   const stride = 4, count = arr.length / stride, keep = mobile ? 3 : 1;
   const f = new Frame(127.0818, 37.2427, 0);
-  const instances = [];
   let mesh = new Mesh(), inChunk = 0, total = 0;
-  const flush = () => {
-    if (!mesh.empty) instances.push(new Cesium.GeometryInstance({ id: { kind: "trees" }, geometry: mesh.geometry(), attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1, 1, 1, 0)) } }));
+  const flush = async () => {
+    if (!mesh.empty) coll.add(new Cesium.Primitive({
+      geometryInstances: new Cesium.GeometryInstance({ id: { kind: "trees" }, geometry: mesh.geometry(), attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1, 1, 1, 0)) } }),
+      appearance: createTreeAppearance(), asynchronous: false, compressVertices: false,
+      shadows: mobile ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
+    }));
     mesh = new Mesh(); inChunk = 0;
+    await new Promise((r) => setTimeout(r, 0));
   };
   for (let i = 0; i < count; i += keep) {
     const lon = meta.origin_lon + arr[i * stride], lat = meta.origin_lat + arr[i * stride + 1];
@@ -48,17 +56,10 @@ export function buildTrees(viewer, dem, meta, arr, inClip, mobile) {
       }
     }
     total++;
-    if (++inChunk >= 1500) flush();
+    if (++inChunk >= 250) await flush();
   }
-  flush();
-  const prim = viewer.scene.primitives.add(new Cesium.Primitive({
-    geometryInstances: instances,
-    appearance: createTreeAppearance(),
-    asynchronous: false,
-    compressVertices: false,
-    shadows: mobile ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
-  }));
-  return { prim, total };
+  await flush();
+  return total;
 }
 
 // trees share the facade material shader (style 21 = foliage)

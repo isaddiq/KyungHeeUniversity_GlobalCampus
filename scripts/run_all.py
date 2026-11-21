@@ -13,9 +13,11 @@ STEPS = [
     ("fetch_osm.py", True),        # Phase 1-2: OSM via Overpass (campus relation + 600 m context)
     ("fetch_dem.py", True),        # Phase 2: FABDEM + Copernicus GLO-30 tile N37E127
     ("build_terrain.py", False),   # Phase 3: DTM grid, geoid grid, slope/hillshade overlays
+    ("terrain_mods.py", False),    # local terrain conditioning (sunken stadium, levelled sites) - estimated
     ("build_features.py", False),  # Phase 4-5: buildings, roads, landcover, POIs, vegetation
     ("build_campus_details.py", False),  # landmark inputs: gate, library, theatre, peace hall, plaza, crop
     ("build_ground.py", False),    # sports fields, parking, roads, stairs and markings
+    ("build_web_subset.py", False),  # campus-only copies of the feature layers for the browser
     ("validate.py", False),        # Phase 7: checks, provenance, accuracy report
 ]
 

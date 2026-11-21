@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-21T11:00:38+00:00",
+  "generated_utc": "2026-11-21T13:40:25+00:00",
   "osm_timestamp": "2026-11-21T10:16:19Z",
   "campus_bbox": {
     "south": 37.2366366,
@@ -194,7 +194,7 @@
     {
       "name": "Buildings on sloping ground",
       "status": "info",
-      "detail": "23 of 41 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats."
+      "detail": "22 of 41 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats."
     },
     {
       "name": "Campus building heights",
@@ -233,7 +233,7 @@
     }
   ],
   "trees": {
-    "count": 17885,
-    "status": "VISUAL APPROXIMATION - not surveyed tree positions"
+    "count": 17976,
+    "status": "VISUAL APPROXIMATION - not surveyed tree positions, except the first 'mapped_count' entries, which are OSM-mapped trees (natural=tree / tree_row) at their mapped positions (heights estimated)"
   }
 }

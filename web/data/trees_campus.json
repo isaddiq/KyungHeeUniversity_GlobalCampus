@@ -1,0 +1,15 @@
+{
+  "count": 2634,
+  "origin_lon": 127.06919763642391,
+  "origin_lat": 37.23124673295005,
+  "layout": "float32 LE x4 per tree: dlon_deg, dlat_deg (from origin), ground_orthometric_m, tree_height_m",
+  "status": "VISUAL APPROXIMATION - not surveyed tree positions, except the first 'mapped_count' entries, which are OSM-mapped trees (natural=tree / tree_row) at their mapped positions (heights estimated)",
+  "mapped_count": 50,
+  "method": "Jittered 10 m grid. A grid point becomes a tree when it lies in an OSM natural=wood/landuse=forest polygon, or where canopy height (Copernicus DSM - FABDEM DTM) >= 3.5 m; excluded within 5 m of buildings (22 m for canopy-derived points), on roads, pitches, parking and water. Heights are scaled from canopy height and randomised for display.",
+  "by_source": {
+    "chm": 2060,
+    "osm_wood": 15835,
+    "osm_mapped_tree": 81
+  },
+  "subset": "trees inside the campus crop (campus boundary + 30 m)"
+}

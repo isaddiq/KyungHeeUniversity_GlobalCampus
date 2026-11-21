@@ -16,6 +16,37 @@
       "status": "estimated",
       "source": "estimated from photographs (brick arcade ~14 m to cornice + inset metal upper storey; clock tower ~37 m); not a documented value"
     },
+    "way/170482640": {
+      "height": 21.0,
+      "levels": 5,
+      "status": "estimated",
+      "source": "estimated from 3 reference photos (5 storeys counted on the south face: ~3.6 m ground floor + 4 x 3.3 m + 0.9 m parapet = 17.7 m above the parking-lot level, which the DTM puts ~3.3 m above the footprint's lowest ground); not a documented value"
+    },
+    "relation/8269760": {
+      "height": 24.3,
+      "levels": 7,
+      "levels_source": "Kyung Hee University",
+      "status": "estimated",
+      "source": "Main roof estimated from the east elevation photographs at about 23.8 m above the parking deck (24.3 m above the footprint's lowest ground). Kyung Hee University's Institute of International Education documents seven storeys above ground and one basement."
+    },
+    "way/455725718": {
+      "height": 24.4,
+      "levels": 5,
+      "status": "estimated",
+      "source": "Photo estimate for the main roof: five levels counted on the west facade and about 17.6 m above the car park, scaled from the 78.1 m OSM facade and adjusted to the lowest ground using FABDEM. The clock fins extend about 4.9 m above the roof."
+    },
+    "way/585696507": {
+      "height": 21.4,
+      "levels": 4,
+      "status": "estimated",
+      "source": "Four levels counted across the stadium-facing classroom block. The highest entrance roof is estimated at 21.4 m above the footprint's lowest FABDEM ground, or about 16.3 m above the entrance forecourt."
+    },
+    "way/474085540": {
+      "height": 22.5,
+      "levels": 5,
+      "status": "estimated",
+      "source": "Five levels counted on the north facade. The front roof slab is estimated at 22.5 m above the lowest FABDEM ground on the mapped footprint, about 19.2 m above the north entrance apron."
+    },
     "way/474085536": {
       "height": 36.0,
       "status": "estimated",

@@ -9,6 +9,9 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const setLoading = (t) => { $("#loadingText").textContent = t; };
 const DATA = "data";
+// Light mode (default) opens fast: no shadows or MSAA, coarser terrain tiles, no vegetation until it is
+// switched on. "Full detail" in the toolbar stores the choice and reloads.
+const LIGHT = (() => { try { return localStorage.getItem("detail") !== "full"; } catch { return true; } })();
 
 async function main() {
   if (!window.Cesium) throw new Error("CesiumJS failed to load from the CDN.");
@@ -24,8 +27,8 @@ async function main() {
     baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
     navigationHelpButton: false, animation: false, timeline: false, fullscreenButton: false,
     infoBox: false, selectionIndicator: false,
-    shadows: !isMobile,
-    msaaSamples: isMobile ? 1 : 4,
+    shadows: !isMobile && !LIGHT,
+    msaaSamples: isMobile || LIGHT ? 1 : 4,
     useBrowserRecommendedResolution: true,
     contextOptions: { webgl: { alpha: true } },
   });
@@ -33,7 +36,7 @@ async function main() {
   const scene = viewer.scene, globe = scene.globe;
   globe.depthTestAgainstTerrain = true;
   globe.baseColor = Cesium.Color.fromCssColorString("#5b6157");
-  globe.maximumScreenSpaceError = isMobile ? 2.5 : 1.4;
+  globe.maximumScreenSpaceError = isMobile ? 2.5 : LIGHT ? 2.0 : 1.4;
   globe.tileCacheSize = isMobile ? 120 : 400;
   globe.preloadSiblings = !isMobile;
   globe.enableLighting = false;
@@ -106,9 +109,10 @@ async function main() {
   const hillLayer = layersColl.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.hillshade}`, { rectangle: rect, credit: "Hillshade derived from FABDEM V1-2" }));
   hillLayer.alpha = 0.62;
   window.__hill = hillLayer;
-  const slopeLayer = layersColl.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.slope}`, { rectangle: rect, credit: "Slope derived from FABDEM V1-2" }));
-  slopeLayer.alpha = 0.78; slopeLayer.show = false;
-  layersColl.raiseToTop(hillLayer);
+  // the 1.2 MB slope overlay is fetched only when the slope view is first chosen
+  let slopeLayer = null, slopeLoading = null;
+  const ensureSlope = () => slopeLoading ??= Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.slope}`, { rectangle: rect, credit: "Slope derived from FABDEM V1-2" })
+    .then((prov) => { slopeLayer = layersColl.addImageryProvider(prov); slopeLayer.alpha = 0.78; slopeLayer.show = state.viz === "slope"; layersColl.raiseToTop(hillLayer); });
 
   // elevation ramp + contours (GPU material on rendered terrain)
   const local = dem.statsInRect(fbx.west, fbx.south, fbx.east, fbx.north);
@@ -118,7 +122,8 @@ async function main() {
   function applyViz(v) {
     state.viz = v;
     $("#vizSel").value = v;
-    slopeLayer.show = v === "slope";
+    if (slopeLayer) slopeLayer.show = v === "slope";
+    else if (v === "slope") ensureSlope();
     const u = material.uniforms;
     u.showRamp = (v === "elevation" || v === "elevcontours") ? 1 : 0;
     u.showContours = (v === "contours" || v === "elevcontours") ? 1 : 0;
@@ -159,7 +164,7 @@ async function main() {
     scene.requestRender();
   }
   $("#sunDate").onchange = applySun; $("#sunTime").oninput = applySun;
-  $("#shadows").checked = !isMobile;
+  $("#shadows").checked = !isMobile && !LIGHT;
   $("#shadows").onchange = (e) => { viewer.shadows = e.target.checked; };
   applySun();
 
@@ -202,6 +207,21 @@ async function main() {
   cam.setMode("orbit");
   const h = CONFIG.home;
   viewer.camera.flyToBoundingSphere(cam.homeSphere, { offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(h.heading), Cesium.Math.toRadians(h.pitch), h.range), duration: 0 });
+  // default view: the main gate, seen from above the street side, looking through the arch into the campus
+  // ("Whole campus" in the toolbar still flies to the overview above)
+  const g = layers.details?.gate;
+  if (g && !location.hash) {
+    const [glon, glat] = g.center, [ax, ay] = g.axis_en;
+    const mx = 111320 * Math.cos(glat * Math.PI / 180), my = 110950;
+    let nx = -ay, ny = ax;                                         // footprint normal; point it away from the campus
+    const cc = CONFIG.campusCenter ?? { lon: 127.0818, lat: 37.2427 };
+    if (nx * (cc.lon - glon) * mx + ny * (cc.lat - glat) * my > 0) { nx = -nx; ny = -ny; }
+    const d = 78, lon = glon + nx * d / mx, lat = glat + ny * d / my;
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(lon, lat, dem.heightEllipsoid(lon, lat) + 30),
+      orientation: { heading: Math.atan2(-nx, -ny), pitch: Cesium.Math.toRadians(-9), roll: 0 },
+    });
+  }
 
   // ---------------- layer toggles ----------------
   const layerMap = {
@@ -210,12 +230,21 @@ async function main() {
     pois: () => [layers.pois],
   };
   function setLayer(name, on) {
+    if (name === "trees" && on) layers.loadTrees();
     for (const p of layerMap[name]()) if (p) p.show = on;
     const cb = document.querySelector(`[data-layer="${name}"]`);
     if (cb) cb.checked = on;
     if (name === "buildings") $("#btnBuildings").classList.toggle("on", on);
   }
   document.querySelectorAll("[data-layer]").forEach((cb) => { cb.onchange = () => setLayer(cb.dataset.layer, cb.checked); });
+  // start with the 3D only: labels, icons and the boundary line are off until switched on in Layers;
+  // light mode also leaves vegetation off (built on demand)
+  if (LIGHT) document.querySelector('[data-layer="trees"]').checked = false;
+  document.querySelectorAll("[data-layer]").forEach((cb) => { if (!cb.checked) setLayer(cb.dataset.layer, false); });
+  if (!LIGHT) layers.loadTrees();
+  const qb = $("#btnDetail");
+  qb.classList.toggle("on", !LIGHT);
+  qb.onclick = () => { safeSet("detail", LIGHT ? "full" : "light"); location.reload(); };
   $("#colorSel").onchange = (e) => { layers.setBuildingColorMode(e.target.value); $("#colorLegend").classList.toggle("hidden", e.target.value !== "status"); };
 
   // ---------------- bottom bar ----------------
@@ -237,6 +266,7 @@ async function main() {
   $("#toggleLeft").onclick = () => $("#left").classList.toggle("collapsed");
   if (isMobile) $("#left").classList.add("collapsed");
   document.querySelectorAll(".tab").forEach((t) => t.onclick = () => {
+    $("#right").classList.add("hidden");   // details sit over the section content: a tab click returns to it
     document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
     document.querySelectorAll(".tabpane").forEach((p) => p.classList.toggle("active", p.id === `tab-${t.dataset.tab}`));
   });
@@ -276,7 +306,7 @@ async function main() {
     }).join("");
     ul.querySelectorAll("li").forEach((li) => li.onclick = () => selectBuilding(li.dataset.id, true));
   }
-  $("#search").oninput = renderList;
+  $("#search").oninput = () => { $("#right").classList.add("hidden"); renderList(); };
   $("#search").onkeydown = (e) => { if (e.key === "Enter") { const f = $("#buildingList li"); if (f) selectBuilding(f.dataset.id, true); } };
   renderList();
 
@@ -311,7 +341,7 @@ async function main() {
         ["EPSG:5186", `E ${tm.x.toFixed(2)} · N ${tm.y.toFixed(2)}`],
         ["Footprint area", `${p.footprint_area_m2.toLocaleString(undefined, { maximumFractionDigits: 0 })} m²`],
         ["Height", `${p.height_m.toFixed(1)} m <span class="badge ${conf}">${p.height_status}</span>`],
-        ["Floors", p.levels ? `${p.levels} <span class="badge documented">OSM</span>` : "<span class='dim'>unknown</span>"],
+        ["Floors", p.levels ? (p.levels_status === "counted from photographs" ? `${p.levels} <span class="badge estimated">counted from photos</span>` : `${p.levels} <span class="badge documented">${esc(p.levels_source || "OSM")}</span>`) : "<span class='dim'>unknown</span>"],
         ["Roof", esc(p.roof_shape)],
         ...(rec.detailed ? [["Appearance", `${esc(rec.appearance || "stylised facade")} <span class="badge estimated">stylised</span>`]] : []),
         ...(rec.modelHeight ? [["Model height", `${rec.modelHeight.toFixed(1)} m <span class="badge estimated">illustrative</span>`]] : []),

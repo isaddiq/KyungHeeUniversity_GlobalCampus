@@ -105,7 +105,8 @@ def main():
         page.click("button.tab[data-tab=buildings]")
 
         # top-down for alignment check
-        page.click("#closeRight")
+        if page.locator("#closeRight").is_visible():   # a tab switch already closes the details panel
+            page.click("#closeRight")
         page.click("#modeSeg button[data-mode=top]")
         page.wait_for_timeout(2600)
         settle(page, 6)

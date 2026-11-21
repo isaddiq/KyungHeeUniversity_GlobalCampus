@@ -8,7 +8,9 @@ export const hex = (h) => { const c = Cesium.Color.fromCssColorString(h); return
 export const STY = {
   GRANITE: 0, MODERN: 1, RESID: 2, GLASS: 3, RUSTIC: 4, ASHLAR: 5, COFFER: 6, COLUMN: 7, ATTIC: 8,
   CORNICE: 9, BRONZE: 10, RELIEF: 11, STATUE: 12, PORTICO: 13, PAVILION: 14, OBELISK: 15,
-  BALUSTRADE: 16, ARCADE: 18, METAL: 19, CLOCK: 20,
+  BALUSTRADE: 16, ARCADE: 18, METAL: 19, CLOCK: 20, FOLIAGE: 21, TABLET: 22, BANDED: 23, NET: 24,
+  ENGINEERING_WING: 25, FOREIGN_LANGUAGES_WINDOWS: 26, ELECTRONICS_BRICK: 27,
+  WOOJUNGWON_WINDOWS: 28, WOOJUNGWON_GLASS: 29,
 };
 
 const VS = `
@@ -54,6 +56,29 @@ float glyph(vec2 cellId, vec2 g) {          // 3x5 pseudo-letter, g in [0,1]^2
   if (g.x < 0.12 || g.x > 0.88 || g.y < 0.12 || g.y > 0.88) return 0.0;
   vec2 px = floor(vec2((g.x - 0.12) / 0.76 * 3.0, (g.y - 0.12) / 0.76 * 5.0));
   return step(0.42, hash(cellId * 7.13 + px));
+}
+// 5x7 capitals for the gate inscription "NEO-RENAISSANCE"; rows 0-3 in a, rows 4-6 in b (MSB = left pixel)
+vec2 fontGlyph(float g) {
+  if (g < 0.5) return vec2(583347.0, 17969.0);   // N
+  if (g < 1.5) return vec2(1032734.0, 16927.0);  // E
+  if (g < 2.5) return vec2(476721.0, 17966.0);   // O
+  if (g < 3.5) return vec2(31.0, 0.0);           // -
+  if (g < 4.5) return vec2(1001022.0, 21073.0);  // R
+  if (g < 5.5) return vec2(476735.0, 17969.0);   // A
+  if (g < 6.5) return vec2(462980.0, 4238.0);    // I
+  if (g < 7.5) return vec2(508430.0, 1086.0);    // S
+  return vec2(476688.0, 16942.0);                // C
+}
+float textChar(float i) {                         // N E O - R E N A I S S A N C E
+  if (i < 0.5) return 0.0; if (i < 1.5) return 1.0; if (i < 2.5) return 2.0; if (i < 3.5) return 3.0;
+  if (i < 4.5) return 4.0; if (i < 5.5) return 1.0; if (i < 6.5) return 0.0; if (i < 7.5) return 5.0;
+  if (i < 8.5) return 6.0; if (i < 10.5) return 7.0; if (i < 11.5) return 5.0; if (i < 12.5) return 0.0;
+  if (i < 13.5) return 8.0; return 1.0;
+}
+float fontPixel(float g, float row, float px) {   // row 0 = top
+  vec2 v = fontGlyph(g);
+  float bits = row < 3.5 ? mod(floor(v.x / exp2(5.0 * (3.0 - row))), 32.0) : mod(floor(v.y / exp2(5.0 * (6.0 - row))), 32.0);
+  return mod(floor(bits / exp2(4.0 - px)), 2.0);
 }
 vec3 glass(vec3 n, vec3 toEye, float var) {
   float fres = pow(1.0 - max(dot(n, toEye), 0.0), 3.0);
@@ -103,11 +128,13 @@ void main() {
   } else if (sty == 8.0) {                        // attic with inscription band
     col = ashlar(base, u, h);
     float lo = H * 0.3, hi = H * 0.62;
-    if (h > lo - 0.12 && h < hi + 0.12 && u > L * 0.12 && u < L * 0.88) col = base * 0.93;
-    if (h > lo && h < hi && u > L * 0.15 && u < L * 0.85) {
-      float cw = (hi - lo) * 0.62;
-      vec2 g = vec2(fract(u / cw), (h - lo) / (hi - lo));
-      if (glyph(vec2(floor(u / cw), 3.0), g) > 0.5 && hash(vec2(floor(u / cw), 11.0)) > 0.1) col = vec3(0.45, 0.36, 0.2);
+    if (h > lo - 0.12 && h < hi + 0.12 && u > L * 0.12 && u < L * 0.88) col = base * 0.95;
+    // engraved "NEO-RENAISSANCE" (15 letters, 6-pixel advance), centred; letter size from photographs (~43 % of attic width)
+    float cell = min((hi - lo) / 7.0, L * 0.43 / 89.0);
+    float x = (u - (L * 0.5 - 44.5 * cell)) / cell, y = (h - (lo + hi) * 0.5 + 3.5 * cell) / cell;
+    if (x >= 0.0 && x < 89.0 && y >= 0.0 && y < 7.0) {
+      float ci = floor(x / 6.0), px = floor(x) - ci * 6.0;
+      if (px < 5.0 && fontPixel(textChar(ci), 6.0 - floor(y), px) > 0.5) col = base * 0.56;
     }
   } else if (sty == 9.0) {                        // entablature: architrave, frieze, dentil cornice
     float r = h / max(H, 0.1);
@@ -214,6 +241,122 @@ void main() {
       if (abs(c.x) < 0.05 && c.y > 0.0 && c.y < 1.1) col = vec3(0.1);
       if (abs(c.y + c.x * 0.3) < 0.06 && c.x > 0.0 && c.x < 0.8) col = vec3(0.1);
     }
+  } else if (sty == 22.0) {                       // engraved stone tablet: fret frame, title, lines of text
+    col = base;
+    float fr = min(min(u, L - u), min(h, H - h));
+    if (fr < 0.14) col = base * (0.9 + 0.12 * step(0.5, fract((u + h) / 0.1)));
+    else if (fr < 0.19) col = base * 0.78;
+    else if (h > H - 0.46 && h < H - 0.3) { if (abs(u - L * 0.5) < L * 0.22 && hash(vec2(floor(u / 0.09), 3.0)) > 0.25) col = base * 0.5; }
+    else if (h > 0.3 && h < H - 0.55 && u > 0.3 && u < L - 0.3) {
+      float ln = fract((H - h) / 0.1);
+      if (ln > 0.35 && ln < 0.72 && hash(vec2(floor(u / 0.06), floor(h / 0.1))) > 0.32) col = base * 0.58;
+    }
+    spec = 0.1; shin = 20.0;
+  } else if (sty == 23.0) {                       // banded slab: projecting floor bands, recessed window strip, fins per bay
+    float npb = max(1.0, floor((v_style.z - 23.0) * 10.0 + 0.5));   // windows per bay (encoded as 23 + n/10)
+    float nb = max(1.0, floor(L / bw + 0.5)), bww = L / nb;
+    float bx = fract(u / bww) * bww, wy = mod(h, fh);
+    col = base * 0.83;
+    if (wy < 0.95) col = base * 1.04;
+    else if (min(bx, bww - bx) < 0.24) col = base * 0.99;
+    else {
+      float cw = (bww - 0.48) / npb;
+      float cx = mod(bx - 0.24, cw) - cw * 0.5;
+      float ww = min(cw * 0.2, 0.56);
+      if (abs(cx) < ww && wy > 1.45 && wy < fh - 0.5 && L > 3.0) {
+        col = glass(n, toEye, hash(vec2(floor(u / cw), floor(h / fh))));
+        if (ww - abs(cx) < 0.07 || abs(cx) < 0.03 || abs(wy - fh * 0.66) < 0.03) col = vec3(0.9, 0.9, 0.88);
+        spec = 0.55; shin = 70.0;
+      } else if (abs(cx) < ww + 0.08 && wy > 1.35 && wy < 1.45) col = base;
+    }
+    if (h > H - 0.9) col = base * 1.05;
+    if (h < 0.0) col = base * 0.78;
+  } else if (sty == 24.0) {                       // ball-stop net: 0.12 m mesh, see-through between the cords
+    vec2 g = fract(vec2(u, h) / 0.12);
+    if (min(min(g.x, 1.0 - g.x), min(g.y, 1.0 - g.y)) > 0.12 && h < H - 0.08 && h > 0.05) discard;
+    col = base;
+  } else if (sty == 25.0) {                       // engineering wings: broad punched windows and concrete courses
+    float bay = L / max(1.0, floor(L / bw + 0.5));
+    float x = (fract(u / bay) - 0.5) * bay;
+    float y = mod(h, fh);
+    float halfWindow = min(bay * 0.32, 1.75);
+    col = base * (y < 0.42 || h > H - 0.62 ? 1.04 : 0.96);
+    if (h < max(gl, 0.0) + 0.25) col = base * 0.78;
+    else if (h < H - 0.65 && L > 3.3 && abs(x) < halfWindow && y > 0.75 && y < fh - 0.68) {
+      col = mix(glass(n, toEye, hash(vec2(floor(u / bay), floor(h / fh)))), vec3(0.15, 0.24, 0.22), 0.56);
+      if (halfWindow - abs(x) < 0.06 || y - 0.75 < 0.06 || fh - 0.68 - y < 0.06 ||
+          abs(fract(x / 1.0 + 0.5) - 0.5) < 0.035 || abs(y - fh * 0.62) < 0.035) col *= 0.45;
+      spec = 0.45; shin = 50.0;
+    }
+  } else if (sty == 26.0) {                       // Foreign Languages window bands
+    float bay = L / max(1.0, floor(L / bw + 0.5));
+    float x = (fract(u / bay) - 0.5) * bay;
+    float y = mod(h, fh);
+    float hw = max(0.1, bay * 0.5 - (bw > 5.0 ? 0.27 : 0.54));
+    float lo = h < 0.0 ? 1.12 : 0.57;
+    float hi = h < 0.0 ? 2.38 : fh - 0.76;
+    float radius = min(0.29, hw);
+    float clip = length(max(vec2(abs(x) - hw + radius, y - hi + radius), 0.0)) - radius;
+    col = base * (y < 0.25 ? 1.02 : 0.98);
+    float lowestBand = bw > 5.0 ? -fh : 0.0;
+    if (L > 2.0 && h > gl + 0.07 && h > lowestBand && h < H - 0.67 && y > lo && clip < 0.02) {
+      float var = hash(vec2(floor(u / bay), floor(h / fh)));
+      col = mix(glass(n, toEye, var), vec3(0.17, 0.30, 0.31), 0.58);
+      float panes = bw > 5.0 ? 5.0 : 3.0;
+      float mullion = abs(fract((x + hw) * panes / (2.0 * hw) + 0.5) - 0.5);
+      if (clip > -0.08 || y - lo < 0.075 || mullion < 0.035 || abs(y - mix(lo, hi, 0.74)) < 0.028) col *= 0.52;
+      spec = 0.46; shin = 55.0;
+    }
+  } else if (sty == 27.0) {                       // Electronics building: pale brick courses and inset windows
+    float bay = L / max(1.0, floor(L / bw + 0.5));
+    float x = (fract(u / bay) - 0.5) * bay;
+    float y = mod(h, fh);
+    bool stair = bw > 7.5;
+    float hw = bay * (stair ? 0.24 : 0.385);
+    float sill = stair ? 0.98 : 0.55;
+    float head = fh - (stair ? 1.04 : 0.66);
+    float course = floor(h / 0.088);
+    float bx = (u + 0.125 * mod(course, 2.0)) / 0.25;
+    float joint = min(min(fract(bx), 1.0 - fract(bx)) * 0.25, mod(h, 0.088));
+    float detail = 1.0 - 0.16 * (1.0 - smoothstep(0.002, 0.014, joint)) *
+      (1.0 - smoothstep(0.02, 0.18, max(fwidth(h), 0.4 * fwidth(u))));
+    col = base * (0.94 + 0.08 * hash(vec2(floor(bx), course))) * detail;
+    if (y > head || y < sill) col = mix(col, vec3(0.76, 0.73, 0.68), stair ? 0.12 : 0.36);
+    if (!stair && y > sill - 0.13 && y < sill) col *= 0.91;
+    if (L > 1.7 && h > max(gl, -0.12) && h < H - 0.35 && abs(x) < hw && y > sill && y < head) {
+      float var = hash(vec2(floor(u / bay), floor(h / fh)));
+      col = mix(glass(n, toEye, var), vec3(0.14, 0.23, 0.26), 0.59);
+      float split = min(abs(x + hw * 0.34), abs(x - hw * 0.34));
+      if (min(hw - abs(x), y - sill) < 0.105 || head - y < 0.12 ||
+          split < 0.032 || abs(y - mix(sill, head, 0.51)) < 0.037) col *= 0.40;
+      spec = 0.43; shin = 54.0;
+    }
+  } else if (sty == 28.0) {                       // Woojungwon: narrow dormitory windows with jade pediments
+    float bay = L / max(1.0, floor(L / bw + 0.5));
+    float x = abs((fract(u / bay) - 0.5) * bay);
+    float y = mod(h, fh);
+    float sill = 0.67, head = 2.34;
+    float hw = min(bay * 0.2, 0.58);
+    col = base * (0.98 + 0.045 * vnoise(vec2(u, h) * 0.72));
+    if (h < max(gl, -3.08)) col *= 0.88;
+    if (L > 1.35 && h >= -0.02 && h < H - 0.44) {
+      if (x < hw + 0.13 && y > sill - 0.108 && y < sill) col = vec3(0.41, 0.55, 0.46);
+      if (x < hw + 0.13 && y > head && y < head + 0.25 - x * 0.16) col = vec3(0.36, 0.49, 0.42);
+      if (x < hw && y > sill && y < head) {
+        float var = hash(vec2(floor(u / bay), floor(h / fh)));
+        col = mix(glass(n, toEye, var), vec3(0.27, 0.33, 0.34), 0.58);
+        if (min(hw - x, min(y - sill, head - y)) < 0.077 || x < 0.021 || abs(y - 1.67) < 0.031) {
+          col = vec3(0.74, 0.77, 0.74);
+        }
+        spec = 0.38; shin = 51.0;
+      }
+    }
+  } else if (sty == 29.0) {                       // curved glass towers
+    float pane = u / (L / 14.0);
+    col = mix(base, glass(n, toEye, hash(vec2(floor(pane), floor(h / 1.68)))), 0.22);
+    if (min(fract(pane), 1.0 - fract(pane)) < 0.042 ||
+        abs(fract(h / 1.68 + 0.5) - 0.5) < 0.023) col *= 0.62;
+    spec = 0.59; shin = 64.0;
   } else if (sty == 21.0) {                       // foliage
     float n1 = vnoise(vec2(u, h) * 1.7), n2 = vnoise(vec2(u, h) * 6.0);
     col = base * (0.6 + 0.5 * n1 + 0.22 * n2);
@@ -448,5 +591,19 @@ export class Local {
     const N = this.D(0, nrmT, 0);
     const ids = pts.map(([s, z]) => this._v(this.P(s, t, z), N, s - s0, z - zref, col, sty, H, s1 - s0));
     for (let k = 0; k < tri.length; k += 3) this.m.tri(ids[tri[k]], ids[tri[k + 1]], ids[tri[k + 2]]);
+  }
+  /** Closed extrusion of a counterclockwise (s,z) profile from t0 to t1. */
+  profile(pts, t0, t1, col, sty = STY.STATUE) {
+    const base = Math.min(...pts.map(([, z]) => z));
+    this.sFace(pts, t0, -1, col, sty, base);
+    this.sFace(pts, t1, 1, col, sty, base);
+    for (let i = 0; i < pts.length; i++) {
+      const [s, z] = pts[i], [nextS, nextZ] = pts[(i + 1) % pts.length];
+      const ds = nextS - s, dz = nextZ - z, len = Math.hypot(ds, dz);
+      if (len < 0.001) continue;
+      const d = t1 - t0;
+      this.quad([s, t0, z], [nextS, t0, nextZ], [nextS, t1, nextZ], [s, t1, z],
+        [dz / len, 0, -ds / len], [[0, 0], [len, 0], [len, d], [0, d]], col, sty, d, len);
+    }
   }
 }

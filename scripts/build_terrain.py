@@ -100,39 +100,17 @@ def slope_colour(deg):
     return out.astype(np.uint8)
 
 
-def main():
-    out_dir = WEB_DATA / "terrain"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    dtm_full = read_tile(RAW / "fabdem_v1-2_N37E127.tif")
-    dsm_full = read_tile(RAW / "copernicus_glo30_N37E127.tif")
-    r0, r1, c0, c1 = crop_window(TERRAIN_BBOX)
-    dtm = dtm_full[r0:r1 + 1, c0:c1 + 1]
-    dsm = dsm_full[r0:r1 + 1, c0:c1 + 1]
-    assert np.all(dtm > -1000), "nodata inside crop"
+def write_overlays(dtm, west, south, east, north, dx, dy, out_dir, cond=None):
+    """Slope + hillshade overlays (bilinear upsample, ~12 m/pixel; no smoothing of the source). `cond` = optional
+    terrain_mods.Conditioner, so the overlays show the carved stadium / levelled sites like the 3D surface."""
     rows, cols = dtm.shape
-    west = TILE_LON0 + c0 * ARCSEC
-    north = TILE_LAT0 - r0 * ARCSEC
-    east = west + (cols - 1) * ARCSEC
-    south = north - (rows - 1) * ARCSEC
-    print(f"crop {rows}x{cols}  lon {west:.6f}..{east:.6f}  lat {south:.6f}..{north:.6f}")
-    print(f"DTM {dtm.min():.2f}..{dtm.max():.2f} m   DSM {dsm.min():.2f}..{dsm.max():.2f} m")
-
-    hmin = math.floor(dtm.min()) - 1.0
-    rng = dtm.max() - hmin
-    scale = 0.01 if rng < 655 else 0.1  # cm precision when possible
-    q = np.round((dtm - hmin) / scale).astype(np.uint16)
-    q.astype("<u2").tofile(out_dir / "dtm.bin")
-    qerr = np.abs(q * scale + hmin - dtm).max()
-
-    lat_c = (north + south) / 2
-    dx = ARCSEC * 111_320.0 * math.cos(math.radians(lat_c))  # approx metric spacing (info + slope)
-    dy = ARCSEC * 110_950.0
-    geoid, geoid_desc = geoid_grid(west, south, east, north)
-
-    # ---- overlays (bilinear upsample, ~6 m/pixel; no smoothing of the source) ----
-    up_w = 2048
+    up_w = 1024
     up_h = int(round(up_w * (rows - 1) * dy / ((cols - 1) * dx)))
     zu = bilinear_upsample(dtm, up_h, up_w)
+    if cond is not None:
+        lons = np.linspace(west, east, up_w)[None, :].repeat(up_h, 0)
+        lats = np.linspace(north, south, up_h)[:, None].repeat(up_w, 1)
+        zu = cond(lons, lats, zu)
     pdx = (cols - 1) * dx / (up_w - 1)
     pdy = (rows - 1) * dy / (up_h - 1)
     gx, gy = slope_aspect(zu, pdx, pdy)
@@ -163,6 +141,42 @@ def main():
     hx, hy = 0.5 * (east - west) / (up_w - 1), 0.5 * (north - south) / (up_h - 1)
     overlay_rect = [west - hx, south - hy, east + hx, north + hy]
 
+    return {"rectangle_deg": overlay_rect, "width": up_w, "height": up_h, "pixel_m": [round(pdx, 2), round(pdy, 2)],
+            "slope": "slope.jpg", "hillshade": "hillshade.png", "slope_legend_deg": [0, 5, 10, 15, 20, 30, 45],
+            "conditioned": cond is not None}
+
+
+def main():
+    out_dir = WEB_DATA / "terrain"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dtm_full = read_tile(RAW / "fabdem_v1-2_N37E127.tif")
+    dsm_full = read_tile(RAW / "copernicus_glo30_N37E127.tif")
+    r0, r1, c0, c1 = crop_window(TERRAIN_BBOX)
+    dtm = dtm_full[r0:r1 + 1, c0:c1 + 1]
+    dsm = dsm_full[r0:r1 + 1, c0:c1 + 1]
+    assert np.all(dtm > -1000), "nodata inside crop"
+    rows, cols = dtm.shape
+    west = TILE_LON0 + c0 * ARCSEC
+    north = TILE_LAT0 - r0 * ARCSEC
+    east = west + (cols - 1) * ARCSEC
+    south = north - (rows - 1) * ARCSEC
+    print(f"crop {rows}x{cols}  lon {west:.6f}..{east:.6f}  lat {south:.6f}..{north:.6f}")
+    print(f"DTM {dtm.min():.2f}..{dtm.max():.2f} m   DSM {dsm.min():.2f}..{dsm.max():.2f} m")
+
+    hmin = math.floor(dtm.min()) - 1.0
+    rng = dtm.max() - hmin
+    scale = 0.01 if rng < 655 else 0.1  # cm precision when possible
+    q = np.round((dtm - hmin) / scale).astype(np.uint16)
+    q.astype("<u2").tofile(out_dir / "dtm.bin")
+    qerr = np.abs(q * scale + hmin - dtm).max()
+
+    lat_c = (north + south) / 2
+    dx = ARCSEC * 111_320.0 * math.cos(math.radians(lat_c))  # approx metric spacing (info + slope)
+    dy = ARCSEC * 110_950.0
+    geoid, geoid_desc = geoid_grid(west, south, east, north)
+
+    ov = write_overlays(dtm, west, south, east, north, dx, dy, out_dir)
+
     meta = {
         "description": "FABDEM V1-2 bare-earth DTM crop (orthometric, EGM2008), PixelIsPoint",
         "format": "uint16 little-endian, row-major, row 0 = north edge; height = value*scale + offset",
@@ -178,17 +192,14 @@ def main():
                   "nx": geoid.shape[1], "ny": geoid.shape[0],
                   "west": west, "south": south, "east": east, "north": north,
                   "row0": "north", "N_m": [[round(float(v), 3) for v in row] for row in geoid]},
-        "overlays": {"rectangle_deg": overlay_rect, "width": up_w, "height": up_h,
-                     "pixel_m": [round(pdx, 2), round(pdy, 2)],
-                     "slope": "slope.jpg", "hillshade": "hillshade.png",
-                     "slope_legend_deg": [0, 5, 10, 15, 20, 30, 45]},
+        "overlays": ov,
     }
     write_json(out_dir / "dtm.json", meta)
     np.save(RAW / "dtm_crop.npy", dtm)
     np.save(RAW / "dsm_crop.npy", dsm)
     write_json(RAW / "crop_meta.json", {k: meta[k] for k in ("rows", "cols", "west", "south", "east", "north", "dlon", "dlat")})
     print("quantisation", scale, "max err", qerr, "geoid N", geoid.min(), geoid.max())
-    print("overlay", up_w, up_h, "px", pdx, pdy, "m/px; max slope", slope_deg.max())
+    print("overlay", ov["width"], ov["height"], "px", ov["pixel_m"], "m/px")
 
 
 if __name__ == "__main__":

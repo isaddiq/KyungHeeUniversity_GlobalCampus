@@ -26,6 +26,26 @@ class Grid:
                 + z[y0 + 1, x0] * (1 - tx) * ty + z[y0 + 1, x0 + 1] * tx * ty)
 
 
-def load():
+class Conditioned(Grid):
+    """DTM with the local terrain conditioning of terrain_mods.py applied (only ever lowers the DTM)."""
+
+    def __init__(self, arr, meta, cond):
+        super().__init__(arr, meta)
+        self.cond = cond
+
+    def sample(self, lon, lat):
+        return self.cond(lon, lat, super().sample(lon, lat))
+
+
+def load(raw: bool = False):
+    """(dtm, dsm). By default the DTM includes the local terrain conditioning (web/data/terrain/terrain_mods.json);
+    raw=True returns the untouched FABDEM crop (accuracy checks)."""
     meta = read_json(RAW / "crop_meta.json")
-    return Grid(np.load(RAW / "dtm_crop.npy"), meta), Grid(np.load(RAW / "dsm_crop.npy"), meta)
+    dsm = Grid(np.load(RAW / "dsm_crop.npy"), meta)
+    arr = np.load(RAW / "dtm_crop.npy")
+    if not raw:
+        from terrain_mods import load_conditioner
+        cond = load_conditioner()
+        if cond is not None:
+            return Conditioned(arr, meta, cond), dsm
+    return Grid(arr, meta), dsm
