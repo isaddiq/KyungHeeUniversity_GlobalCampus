@@ -1,0 +1,8 @@
+# offline preprocessing only - the website itself needs no Python/Node at runtime
+numpy>=1.26
+shapely>=2.0
+pyproj>=3.6        # EGM2008 geoid grid (PROJ network) + projection verification
+tifffile>=2024.1
+imagecodecs>=2024.1  # DEFLATE + floating-point predictor used by the DEM GeoTIFFs
+Pillow>=10.0
+playwright>=1.40   # optional: scripts/check_site.py browser verification

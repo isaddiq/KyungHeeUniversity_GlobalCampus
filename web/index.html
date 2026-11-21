@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>KHU Global Campus Twin</title>
+  <meta name="description" content="Geographically referenced 3D reconstruction of Kyung Hee University Global Campus (경희대학교 국제캠퍼스), Yongin: real terrain (FABDEM/Copernicus DEM), OpenStreetMap building footprints, roads and landcover, with data provenance.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M2 26 L11 12 L16 19 L21 9 L30 26 Z' fill='%23ffb547'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <link href="css/app.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Cesium.js"></script>
+</head>
+<body>
+  <div id="cesium"></div>
+
+  <header id="topbar">
+    <button class="icon-btn" id="toggleLeft" title="Toggle side panel" aria-label="Toggle side panel">☰</button>
+    <div class="brand">
+      <div class="title">Kyung Hee University Global Campus <span class="ko">경희대학교 국제캠퍼스</span></div>
+      <div class="subtitle">Geospatial digital twin · Yongin-si, Gyeonggi-do · WGS84 / EPSG:5186 · 1:1 scale</div>
+    </div>
+    <button class="ghost-btn" id="openAbout">Data &amp; accuracy</button>
+  </header>
+
+  <aside id="left" class="panel">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="buildings">Buildings</button>
+      <button class="tab" data-tab="terrain">Terrain</button>
+      <button class="tab" data-tab="layers">Layers</button>
+    </nav>
+
+    <section class="tabpane active" id="tab-overview">
+      <div class="kv" id="overviewStats"></div>
+      <p class="note">Kyung Hee campus buildings stand on their real OSM footprints and DTM ground and are shown with <b>stylised</b> colour and façades: windows are drawn for each estimated storey, the main gate, library and plaza obelisks are modelled from photographs, and the amphitheatre seats follow the real slope. The view is cropped to the university grounds. The terrain is a real bare-earth elevation model (FABDEM, 1″ ≈ 30 m), not a generated surface. Building footprints come from OpenStreetMap, cross-referenced with the official KHU campus map. Each building height is labelled <span class="badge documented">documented</span> <span class="badge derived">derived</span> or <span class="badge estimated">estimated</span>.</p>
+      <button class="primary-btn" id="walkCampus">🚶 Walk the campus from the main gate</button>
+      <div class="legend" id="statusLegend">
+        <div><i style="background:#ff6a3d"></i>Campus boundary (OSM relation 11246784)</div>
+        <div><i style="background:#ffc933"></i>Selected building</div>
+      </div>
+      <p class="note dim">Independent research reconstruction, not an official Kyung Hee University product.</p>
+    </section>
+
+    <section class="tabpane" id="tab-buildings">
+      <input id="search" type="search" placeholder="Search building (한글 / English / no.)" autocomplete="off">
+      <div id="buildingCount" class="dim small"></div>
+      <ul id="buildingList" class="list"></ul>
+    </section>
+
+    <section class="tabpane" id="tab-terrain">
+      <h4>Surface</h4>
+      <label class="field">Imagery
+        <select id="imagerySel"></select>
+      </label>
+      <div id="vworldRow" class="field hidden">
+        <input id="vworldKey" type="text" placeholder="VWorld API key (domain-restricted)">
+        <button class="mini" id="vworldApply">Use</button>
+      </div>
+      <label class="field">Visualisation
+        <select id="vizSel">
+          <option value="realistic">Realistic (textured)</option>
+          <option value="elevation">Elevation-coloured</option>
+          <option value="slope">Slope</option>
+          <option value="contours">Contour lines</option>
+          <option value="elevcontours">Elevation + contours</option>
+        </select>
+      </label>
+      <label class="field">Contour interval
+        <select id="contourSel"><option>1</option><option>2</option><option selected>5</option><option>10</option><option>20</option></select>
+      </label>
+      <label class="field">Hillshade overlay <input type="range" id="hillshade" min="0" max="1" step="0.05" value="0.35"></label>
+      <label class="check"><input type="checkbox" id="wireframe"> Terrain wireframe</label>
+      <div id="vizLegend" class="ramp-legend"></div>
+      <h4>Sun &amp; shadows</h4>
+      <label class="field">Date <input type="date" id="sunDate" value="2026-05-20"></label>
+      <label class="field">Time (KST) <span id="sunTimeLabel">10:30</span><input type="range" id="sunTime" min="5" max="20" step="0.25" value="10.5"></label>
+      <label class="check"><input type="checkbox" id="shadows" checked> Cast shadows</label>
+      <p class="note dim">Vertical scale is fixed at 1:1, with no exaggeration. Elevations are orthometric heights (EGM2008); the viewer converts them to WGS84 ellipsoidal heights using the EGM2008 geoid (N ≈ 23.5 m here).</p>
+    </section>
+
+    <section class="tabpane" id="tab-layers">
+      <label class="check"><input type="checkbox" data-layer="buildings" checked> Buildings (LOD1 mass)</label>
+      <label class="check"><input type="checkbox" data-layer="labels" checked> Building labels</label>
+      <label class="check"><input type="checkbox" data-layer="roads" checked> Roads, paths, stairs &amp; markings</label>
+      <label class="check"><input type="checkbox" data-layer="landcover" checked> Sports fields, parking, plazas, lawns</label>
+      <label class="check"><input type="checkbox" data-layer="trees" checked> Vegetation (visual approximation)</label>
+      <label class="check"><input type="checkbox" data-layer="boundary" checked> Campus boundary</label>
+      <label class="check"><input type="checkbox" data-layer="pois" checked> Entrances, bus stops, peaks</label>
+      <label class="field">Colour buildings by
+        <select id="colorSel">
+          <option value="realistic">Material (neutral)</option>
+          <option value="status">Height data status</option>
+          <option value="height">Height</option>
+        </select>
+      </label>
+      <div class="legend hidden" id="colorLegend">
+        <div><i style="background:#2fa36b"></i>Documented height</div>
+        <div><i style="background:#3b7fd1"></i>Derived from floor count</div>
+        <div><i style="background:#e08a2c"></i>Estimated (no data)</div>
+      </div>
+      <div class="legend small">
+        <div><i style="background:#4a4d51"></i>Road (asphalt)</div><div><i style="background:#d8d2c5"></i>Footway / paving</div>
+        <div><i style="background:#3e8a3d"></i>Football turf</div><div><i style="background:#c6a57b"></i>Dirt field</div>
+        <div><i style="background:#3a6d9c"></i>Tennis court</div><div><i style="background:#56595d"></i>Parking</div>
+      </div>
+    </section>
+  </aside>
+
+  <aside id="right" class="panel hidden" aria-live="polite">
+    <button class="icon-btn close" id="closeRight" aria-label="Close details">✕</button>
+    <div id="details"></div>
+  </aside>
+
+  <div id="bottombar">
+    <div class="seg" id="modeSeg"></div>
+    <span class="sep"></span>
+    <button class="tb" id="btnReset" title="Reset to entire campus">⌂ Reset</button>
+    <button class="tb toggle" id="btnTerrainOnly" title="Terrain only (hide buildings and vegetation)">Terrain only</button>
+    <button class="tb toggle on" id="btnBuildings" title="Toggle buildings">Buildings</button>
+    <button class="tb toggle on" id="btnImagery" title="Toggle satellite imagery">Imagery</button>
+    <button class="tb toggle" id="btnElevation" title="Toggle elevation colouring">Elevation</button>
+    <button class="tb" id="btnFullscreen" title="Full screen">⛶</button>
+  </div>
+
+  <div id="touchpad" class="hidden" aria-label="Movement controls">
+    <button data-key="KeyQ" class="tp-alt">▼</button><button data-key="KeyW">▲</button><button data-key="KeyE" class="tp-alt">▲</button>
+    <button data-key="KeyA">◀</button><button data-key="KeyS">▼</button><button data-key="KeyD">▶</button>
+  </div>
+
+  <div id="statusbar"><span id="hint"></span><span id="cursor"></span></div>
+
+  <div id="loading"><div class="spinner"></div><div id="loadingText">Loading terrain…</div></div>
+
+  <dialog id="about">
+    <form method="dialog"><button class="icon-btn close" aria-label="Close">✕</button></form>
+    <div id="aboutBody"></div>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

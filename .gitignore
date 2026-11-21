@@ -1,0 +1,7 @@
+# raw downloads (large; re-create with scripts/run_all.py)
+data/raw/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+Thumbs.db

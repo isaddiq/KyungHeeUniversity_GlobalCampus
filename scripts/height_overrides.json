@@ -1,0 +1,25 @@
+{
+  "_readme": "Add documented building heights/floors here (e.g. from the Korean building register 건축물대장 via data.go.kr, or VWorld building data). Keys are OSM ids like 'way/474085534'. Each entry needs a 'source'. Values here take precedence over OSM tags and are labelled 'documented'. Leave empty if you have no documented values - never put guesses here. Entries may set \"status\": \"estimated\" for non-documented, source-described estimates (e.g. from photographs); these stay labelled estimated.",
+  "buildings": {
+    "way/473963422": {
+      "height": 22.5,
+      "source": "Published guidebook: 조명화, 『캠퍼스투어008 경희대학교』 (Google Books) - gate width 62 m, height 22.5 m (incl. sculpture), 39 sculpted figures, completed 2001",
+      "note": "OSM footprint length is 59.2 m vs 62 m published (difference likely end statue bases/steps or footprint generalisation)."
+    },
+    "way/474085534": {
+      "height": 21.0,
+      "status": "estimated",
+      "source": "estimated from aerial/oblique photographs of the library (raised podium + ~4 storeys under a giant colonnade, ≈21 m); not a documented value"
+    },
+    "way/585696506": {
+      "height": 19.5,
+      "status": "estimated",
+      "source": "estimated from photographs (brick arcade ~14 m to cornice + inset metal upper storey; clock tower ~37 m); not a documented value"
+    },
+    "way/474085536": {
+      "height": 36.0,
+      "status": "estimated",
+      "source": "estimated from photographs (2-storey colonnaded base + ~8-storey main block; corner towers ~41 m); not a documented value"
+    }
+  }
+}

@@ -1,0 +1,239 @@
+{
+  "generated_utc": "2026-11-21T11:00:38+00:00",
+  "osm_timestamp": "2026-11-21T10:16:19Z",
+  "campus_bbox": {
+    "south": 37.2366366,
+    "north": 37.2498042,
+    "west": 127.0759682,
+    "east": 127.0876156
+  },
+  "feature_bbox": {
+    "south": 37.23124673295005,
+    "north": 37.25519406704995,
+    "west": 127.06919763642391,
+    "east": 127.0943861635761
+  },
+  "terrain_bbox": {
+    "south": 37.18273792950053,
+    "north": 37.303702870499464,
+    "west": 127.00826256423906,
+    "east": 127.15532123576095
+  },
+  "campus": {
+    "name_ko": "경희대학교 국제캠퍼스",
+    "name_en": "Kyung Hee University Global Campus",
+    "address": "1732 Deogyeong-daero, Giheung-gu, Yongin-si, Gyeonggi-do 17104, Republic of Korea",
+    "area_m2": 719972,
+    "perimeter_m": 4684,
+    "parts": 2,
+    "buildings_in_campus": 41,
+    "buildings_total": 1104,
+    "official_building_entries": 24,
+    "official_matched": 23,
+    "elevation": {
+      "min": 55.45,
+      "max": 112.86,
+      "mean": 77.54,
+      "relief": 57.41,
+      "lowest_point": [
+        127.076025,
+        37.2461
+      ],
+      "highest_point": [
+        127.081892,
+        37.247587
+      ],
+      "samples": 28746,
+      "note": "FABDEM bare-earth, orthometric EGM2008"
+    },
+    "height_status_in_campus": {
+      "documented": 1,
+      "estimated": 39,
+      "derived": 1
+    }
+  },
+  "datasets": [
+    {
+      "id": "fabdem",
+      "name": "FABDEM V1-2 (tile N37E127)",
+      "role": "Primary terrain: bare-earth DTM with forests and buildings removed",
+      "provider": "University of Bristol (Hawker et al., 2022)",
+      "url": "https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn",
+      "resolution": "1 arc-second (~24.6 × 30.9 m here)",
+      "crs": "EPSG:4326 + EGM2008 (EPSG:3855)",
+      "date": "Copernicus GLO-30 source data 2011–2015; FABDEM released 2022 (V1-2 2023)",
+      "license": "CC BY-NC-SA 4.0 (non-commercial)",
+      "limitations": "Machine-learning bare-earth correction; errors of metres, larger under dense forest and on steep slopes. Cannot resolve terraces or walls narrower than ~30 m."
+    },
+    {
+      "id": "copdem",
+      "name": "Copernicus DEM GLO-30 (tile N37E127)",
+      "role": "DSM for cross-checks and the canopy-height model that guides vegetation",
+      "provider": "ESA / DLR / Airbus via AWS Open Data",
+      "url": "https://registry.opendata.aws/copernicus-dem/",
+      "resolution": "1 arc-second",
+      "crs": "EPSG:4326 + EGM2008",
+      "date": "TanDEM-X acquisitions 2011–2015",
+      "license": "Copernicus DEM licence (free, attribution)",
+      "limitations": "Published spec: absolute vertical accuracy < 4 m (LE90). It is a surface model. Buildings in this area appear strongly under-represented."
+    },
+    {
+      "id": "osm",
+      "name": "OpenStreetMap",
+      "role": "Campus boundary, building footprints/names/levels, roads, paths, steps, parking, landcover, POIs",
+      "provider": "OpenStreetMap contributors via Overpass API",
+      "url": "https://www.openstreetmap.org/relation/11246784",
+      "resolution": "vector",
+      "crs": "EPSG:4326",
+      "date": "snapshot 2026-11-21T10:16:19Z",
+      "license": "ODbL 1.0",
+      "limitations": "Volunteered geometry; positional accuracy not quantified (typically 1–5 m). Heights missing for most campus buildings."
+    },
+    {
+      "id": "khu",
+      "name": "Kyung Hee University official campus map list",
+      "role": "Building names and numbering for verification (33 entries)",
+      "provider": "khu.ac.kr",
+      "url": "https://www.khu.ac.kr/kor/user/contents/view.do?menuNo=200086",
+      "resolution": "list (no geometry)",
+      "crs": "–",
+      "date": "retrieved 2026-11-21",
+      "license": "© Kyung Hee University (names used for identification)",
+      "limitations": "No coordinates, floor counts or English names on the pages."
+    },
+    {
+      "id": "egm2008",
+      "name": "EGM2008 geoid (PROJ us_nga_egm08_25)",
+      "role": "Orthometric → ellipsoidal height conversion",
+      "provider": "NGA via PROJ CDN",
+      "url": "https://cdn.proj.org/",
+      "resolution": "2.5′ grid, sampled 9×9 over the window",
+      "crs": "EPSG:3855 → EPSG:4979",
+      "date": "EGM2008",
+      "license": "Public domain",
+      "limitations": "N varies only 0.45 m over the window; residual interpolation error < 1 cm."
+    },
+    {
+      "id": "khu_style",
+      "name": "Stylised campus appearance (this project)",
+      "role": "Procedural facades, main-gate model, amphitheatre terraces, observatory dome",
+      "provider": "web/js/khu_buildings.js + scripts/build_campus_details.py",
+      "url": "https://www.openstreetmap.org/way/473963422",
+      "resolution": "derived from OSM footprints + FABDEM",
+      "crs": "EPSG:4326",
+      "date": "generated",
+      "license": "project code",
+      "limitations": "Appearance only. Window layout, colours, gate form and gate heights are illustrative, not surveyed."
+    },
+    {
+      "id": "imagery",
+      "name": "Imagery tiles (Esri World Imagery default; Sentinel-2 cloudless, OSM, optional VWorld)",
+      "role": "Draped surface texture only, never used to derive geometry",
+      "provider": "Esri / EOX / OSM / VWorld",
+      "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
+      "resolution": "~0.3–1 m (Esri), 10 m (Sentinel-2)",
+      "crs": "EPSG:3857 tiles",
+      "date": "varies by tile (provider-managed)",
+      "license": "Provider terms; streamed, not redistributed",
+      "limitations": "Third-party tiles; possible metre-level offsets and outdated capture dates."
+    }
+  ],
+  "checks": [
+    {
+      "name": "Campus terrain is not flat",
+      "status": "pass",
+      "detail": "Relief inside the boundary: 55.5–112.9 m (57.4 m), from 28746 DTM samples"
+    },
+    {
+      "name": "DTM vs mapped peak elevations (OSM ele)",
+      "status": "pass",
+      "detail": "n=3; mean Δ -2.24 m, max |Δ| 3.54 m (매미산 156.1 vs 158.5 m, 아람산 146.3 vs 147.1 m, 독침산 105.5 vs 109.0 m). A 30 m DEM is expected to slightly underestimate summits.",
+      "values": [
+        {
+          "name": "매미산",
+          "dtm": 156.08,
+          "ele_osm": 158.5
+        },
+        {
+          "name": "아람산",
+          "dtm": 146.33,
+          "ele_osm": 147.1
+        },
+        {
+          "name": "독침산",
+          "dtm": 105.46,
+          "ele_osm": 109.0
+        }
+      ]
+    },
+    {
+      "name": "DTM vs DSM agreement on open sports fields",
+      "status": "pass",
+      "detail": "n=950 samples; median DSM−DTM +0.46 m, RMS 1.61 m. This is an internal consistency check only (FABDEM is derived from Copernicus)."
+    },
+    {
+      "name": "EPSG:5186 transform vs PROJ",
+      "status": "pass",
+      "detail": "max difference 0.0021 mm"
+    },
+    {
+      "name": "Vertical datum handled (EGM2008 → WGS84 ellipsoid)",
+      "status": "pass",
+      "detail": "N = 23.34–23.79 m over the terrain window (EGM2008 via PROJ (us_nga_egm08_25)); this is added to every DTM height before rendering"
+    },
+    {
+      "name": "DEM grid registration",
+      "status": "pass",
+      "detail": "GeoTIFF GTRasterTypeGeoKey=PixelIsPoint; pixel (0,0) centre = 127.0°E, 38.0°N; 1″ spacing honoured without resampling"
+    },
+    {
+      "name": "Building footprint overlaps",
+      "status": "pass",
+      "detail": "0 overlapping footprint pairs (>1 m²) among 1104 buildings"
+    },
+    {
+      "name": "Buildings on sloping ground",
+      "status": "info",
+      "detail": "23 of 41 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats."
+    },
+    {
+      "name": "Campus building heights",
+      "status": "warn",
+      "detail": "In campus: 1 documented, 1 derived from floor count, 39 estimated. Whole scene: {'documented': 161, 'estimated': 936, 'derived': 7}. OSM and the official KHU pages do not publish heights for most campus buildings."
+    },
+    {
+      "name": "DSM−DTM as height estimator (rejected)",
+      "status": "info",
+      "detail": "Compared with 160 OSM-documented heights in the context area, Copernicus DSM minus FABDEM underestimated heights by about 45 m (r≈0.1), so it was not used."
+    },
+    {
+      "name": "Official campus-map buildings matched to footprints",
+      "status": "pass",
+      "detail": "23/24 official building entries matched to OSM footprints; unmatched: 한방재료가공(경희보감); matched but outside boundary: 0"
+    },
+    {
+      "name": "Campus buildings connected to the path network",
+      "status": "pass",
+      "detail": "38/41 campus buildings lie within 30 m of a mapped road/footway (median 5.3 m)"
+    },
+    {
+      "name": "Stylised Kyung Hee building appearance",
+      "status": "info",
+      "detail": "Campus buildings use their real footprints and DTM ground, but their facades (windows per estimated storey, colours) are procedural. Main gate: illustrative model on the footprint frame (59.24 × 5.54 m, opening 11.3 m from footprint vertices); its heights are estimated. Amphitheatre: 41 seating terraces sliced from the real DTM. None of this detail is surveyed."
+    },
+    {
+      "name": "North orientation",
+      "status": "pass",
+      "detail": "All geometry is in geographic coordinates on the WGS84 globe, so north follows from the coordinates. There is no local rotation or scaling."
+    },
+    {
+      "name": "Imagery ↔ footprint alignment",
+      "status": "manual",
+      "detail": "Checked visually in top-down screenshots (see docs/screenshots). Imagery comes from tile services; their offset relative to OSM is not quantified here."
+    }
+  ],
+  "trees": {
+    "count": 17885,
+    "status": "VISUAL APPROXIMATION - not surveyed tree positions"
+  }
+}
