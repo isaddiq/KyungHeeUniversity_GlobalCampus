@@ -27,7 +27,7 @@ class Grid:
 
 
 class Conditioned(Grid):
-    """DTM with the local terrain conditioning of terrain_mods.py applied (only ever lowers the DTM)."""
+    """DTM with the estimated ground grades from terrain_mods.py applied."""
 
     def __init__(self, arr, meta, cond):
         super().__init__(arr, meta)

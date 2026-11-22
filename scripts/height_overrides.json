@@ -41,12 +41,90 @@
       "status": "estimated",
       "source": "Four levels counted across the stadium-facing classroom block. The highest entrance roof is estimated at 21.4 m above the footprint's lowest FABDEM ground, or about 16.3 m above the entrance forecourt."
     },
+    "way/455726113": {
+      "height": 20.2,
+      "levels": 4,
+      "status": "estimated",
+      "source": "Three main levels and the setback attic visible on the west colonnade. Roof height scaled from the 54 m mapped entrance frontage and reference photographs."
+    },
+    "way/764320683": {
+      "height": 7.3,
+      "levels": 2,
+      "status": "estimated",
+      "source": "Two visible levels and stepped roof estimated from the campus gate-side aerial. Gyeonggi Labor Rights Center lists the standalone Emart24 at 41 Seogeunae-ro 15beon-gil."
+    },
+    "relation/6739964": {
+      "height": 34.5,
+      "levels": 10,
+      "levels_source": "Kyung Hee University Dormitory",
+      "status": "estimated",
+      "source": "Kyung Hee University (https://dorm2.khu.ac.kr/20/2010.do) documents 10 above-ground floors for A. Roof height estimated from floor count, photo proportions, and DTM grade."
+    },
+    "relation/6739958": {
+      "height": 46.2,
+      "levels": 13,
+      "levels_source": "Kyung Hee University Dormitory",
+      "status": "estimated",
+      "source": "Kyung Hee University (https://dorm2.khu.ac.kr/20/2010.do) documents 13 above-ground floors for B. Roof height estimated from floor count, photo proportions, and DTM grade."
+    },
+    "way/474085537": {
+      "height": 32.9,
+      "levels": 9,
+      "status": "estimated",
+      "source": "Nine visible floor levels counted from the stadium-side photos and scaled from the 83 m mapped frontage."
+    },
+    "way/474085538": {
+      "height": 15.5,
+      "levels": 4,
+      "status": "estimated",
+      "source": "Roof height and visible levels estimated from the Global Hall entrance panorama and aerial views."
+    },
+    "way/474085535": {
+      "height": 14.4,
+      "levels": 3,
+      "status": "estimated",
+      "source": "Three visible levels and the main roof height estimated from the plaza photographs. The central roof block projects above the main roof."
+    },
+    "way/474085539": {
+      "height": 13.6,
+      "levels": 3,
+      "status": "estimated",
+      "source": "Three visible storeys and the height of the entry portal estimated from the official map photo and forecourt panorama."
+    },
+    "way/474085542": {
+      "height": 15.0,
+      "levels": 3,
+      "status": "estimated",
+      "source": "Three visible storeys from the north entrance, with the height estimated from the map and entrance photos."
+    },
     "way/474085540": {
       "height": 22.5,
       "levels": 5,
       "status": "estimated",
       "source": "Five levels counted on the north facade. The front roof slab is estimated at 22.5 m above the lowest FABDEM ground on the mapped footprint, about 19.2 m above the north entrance apron."
     },
+    "way/455728923": {"height":5.4,"levels":1,"status":"estimated","source":"One-storey exterior and green entry porch estimated from the Reactor Center reference photos."},
+    "way/455728922": {"height":15.5,"levels":2,"status":"estimated","source":"Workshop service bays and clerestory levels from the entrance photos, with ridge roof from aerial imagery."},
+    "way/474521123": {"height":13.2,"levels":3,"status":"estimated","source":"Two brick levels over a partly exposed basement, with the roof and entrance estimated from the Ceramics Hall photos."},
+    "way/474521122": {"height":9.5,"levels":2,"status":"estimated","source":"Masonry base with rooftop greenhouses modelled from the horticulture photographs and aerial imagery."},
+    "way/474521121": {"height":20.6,"levels":4,"status":"estimated","source":"Four visible levels estimated from the cream-and-yellow masonry façades in the Life Sciences photographs."},
+    "way/585696420": {"height":7.3,"levels":1,"status":"estimated","source":"Low Teaching Farm building, estimated from site photographs and its roof proportions in aerial imagery."},
+    "way/778946313": {"height":6.6,"levels":1,"status":"estimated","source":"Single-level blue-roofed research building estimated from photographs and aerial imagery."},
+    "way/801815069": {"height":8.8,"levels":2,"status":"estimated","source":"Two levels and glazed central entry counted from the Experimental Research site photos."},
+    "way/474521125": {"height":14.4,"status":"estimated","source":"White dome and arched entrance scaled approximately from the mapped 31.6 m footprint and Observatory reference photos."},
+    "way/1370623062": {"height":3.8,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/1370623063": {"height":4.6,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946320": {"height":6.2,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946321": {"height":5.4,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946314": {"height":4.9,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946315": {"height":4.6,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946316": {"height":4.8,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946317": {"height":6.1,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946318": {"height":7.8,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/778946319": {"height":5.7,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/170482643": {"height":7.1,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
+    "way/474521124": {"height":7,"status":"estimated","source":"Mapped wooded hillside footprint. Its roof is obscured in the aerial imagery, so the small outbuilding form and height are approximate."},
+    "way/1385686358": {"height":4.1,"status":"estimated","source":"Estimated small-building height from aerial roof proportions and local terrain. Façade detail is approximate."},
     "way/474085536": {
       "height": 36.0,
       "status": "estimated",

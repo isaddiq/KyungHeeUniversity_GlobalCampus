@@ -29,7 +29,7 @@ export class DemGrid {
   }
 
   /** Bilinear orthometric height (m, EGM2008). Outside the grid, fades to the edge mean over ~2 km. */
-  heightOrtho(lon, lat) {
+  heightOrtho(lon, lat, conditioned = true) {
     const fxRaw = (lon - this.west) / this.dlon;
     const fyRaw = (this.north - lat) / this.dlat;
     const fx = Math.min(Math.max(fxRaw, 0), this.cols - 1.000001);
@@ -39,10 +39,10 @@ export class DemGrid {
     const i = y0 * this.cols + x0, h = this.h;
     const v = h[i] * (1 - tx) * (1 - ty) + h[i + 1] * tx * (1 - ty) +
       h[i + this.cols] * (1 - tx) * ty + h[i + this.cols + 1] * tx * ty;
-    const ox = Math.max(0, -fxRaw, fxRaw - (this.cols - 1)) * 24.6; // ~metres outside
-    const oy = Math.max(0, -fyRaw, fyRaw - (this.rows - 1)) * 30.9;
+    const ox = Math.max(0, -fxRaw, fxRaw - (this.cols - 1)) * this.meta.spacing_m.x;
+    const oy = Math.max(0, -fyRaw, fyRaw - (this.rows - 1)) * this.meta.spacing_m.y;
     const out = Math.hypot(ox, oy);
-    if (out <= 0) return this.mods ? this.applyMods(lon, lat, v) : v;
+    if (out <= 0) return conditioned && this.mods ? this.applyMods(lon, lat, v) : v;
     const t = Math.min(1, out / 2000);
     const s = t * t * (3 - 2 * t);
     return v * (1 - s) + this.edgeMean * s;
@@ -50,18 +50,34 @@ export class DemGrid {
 
   /**
    * Local terrain conditioning (terrain_mods.json, estimated): "bowl" shapes a stadium below the DTM.
-   * "level" sets a flat grade for an entrance or courtyard, blending into the DTM along the boundary.
+   * "level" blends a building apron inside its outline. "grade" keeps a playing surface level
+   * to the mapped edge and blends it into the surrounding ground outside the outline.
    */
   setMods(mods) {
-    this.mods = (mods || []).filter((m) => m.type === "bowl" || m.type === "level" || m.type === "platform").map((m) => {
+    const mx = 111320 * Math.cos(37.2424 * Math.PI / 180), my = 110950; // terrain_mods.py matching metric frame
+    this.mods = (mods ?? []).filter((m) => ["bowl", "platform", "level", "grade", "profile"].includes(m.type)).map((m) => {
+      if (m.type === "profile") {
+        const xs = m.points.map((p) => p[0]), ys = m.points.map((p) => p[1]);
+        const reach = m.width_m + m.ramp_m;
+        let total = 0;
+        const segments = m.points.slice(1).map(([lon, lat, height], i) => {
+          const [x, y, z] = m.points[i];
+          const dx = (lon - x) * mx, dy = (lat - y) * my, len = Math.hypot(dx, dy);
+          const seg = { x, y, z, dx, dy, len, start: total, rise: height - z };
+          total += len;
+          return seg;
+        }).filter((seg) => seg.len > 0);
+        return { ...m, segments, total, mx, my,
+          bbox: [Math.min(...xs) - reach / mx, Math.min(...ys) - reach / my, Math.max(...xs) + reach / mx, Math.max(...ys) + reach / my] };
+      }
       if (m.type === "platform") {   // levelled site (several rings) + cut slope back up to the DTM
-        const rings = m.rings, lat0 = rings[0][0][1], mx = 111320 * Math.cos(lat0 * Math.PI / 180), my = 110950;
-        const xs = rings.flat().map((p) => p[0]), ys = rings.flat().map((p) => p[1]), reach = 40 / Math.max(m.slope, 1e-3);
+        const points = m.rings.flat();
+        const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]), reach = 40 / Math.max(m.slope, 1e-3);
         return { ...m, mx, my, bbox: [Math.min(...xs) - reach / mx, Math.min(...ys) - reach / my, Math.max(...xs) + reach / mx, Math.max(...ys) + reach / my] };
       }
-      const lat0 = m.ring[0][1], mx = 111320 * Math.cos(lat0 * Math.PI / 180), my = 110950;
       const xs = m.ring.map((p) => p[0]), ys = m.ring.map((p) => p[1]);
-      return { ...m, mx, my, bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] };
+      const reach = m.type === "grade" ? m.ramp_m : 0;
+      return { ...m, mx, my, bbox: [Math.min(...xs) - reach / mx, Math.min(...ys) - reach / my, Math.max(...xs) + reach / mx, Math.max(...ys) + reach / my] };
     });
     if (!this.mods.length) this.mods = null;
   }
@@ -71,6 +87,7 @@ export class DemGrid {
       const b = m.bbox;
       if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
       if (m.type === "platform") { v = this.platformHeight(m, lon, lat, v); continue; }
+      if (m.type === "profile") { v = this.profileHeight(m, lon, lat, v); continue; }
       const r = m.ring;
       let inside = false, dmin = Infinity;
       for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
@@ -80,10 +97,16 @@ export class DemGrid {
         const t = Math.max(0, Math.min(1, (px * ax + py * ay) / (ax * ax + ay * ay || 1)));
         dmin = Math.min(dmin, Math.hypot(px - ax * t, py - ay * t));
       }
+      if (m.type === "grade") {
+        const t = inside ? 1 : Math.max(0, 1 - dmin / m.ramp_m);
+        v += t * t * (3 - 2 * t) * (m.height_m - v);
+        continue;
+      }
       if (!inside) continue;
       if (m.type === "level") {
         const t = Math.min(1, dmin / m.ramp_m), s = t * t * (3 - 2 * t);
-        return v * (1 - s) + m.height_m * s;
+        v += s * (m.height_m - v);
+        continue;
       }
       // retaining slope over the first ramp_m inside the outline (no cliff exactly on the outline, which
       // rendered as saw-teeth), then steps of equal tread down to the level field
@@ -91,11 +114,28 @@ export class DemGrid {
       const k = Math.floor(Math.max(0, dmin - ramp) / tread);    // 0 = top step
       const above = k >= m.steps ? 0 : (m.steps - k) * m.rise_m;
       const h = Math.max(m.field_m, Math.min(v, m.field_m + above));
-      if (dmin >= ramp) return h;
-      const t = dmin / ramp, s = t * t * (3 - 2 * t);
-      return v * (1 - s) + h * s;
+      const t = Math.min(1, dmin / ramp), s = t * t * (3 - 2 * t);
+      v += s * (h - v);
     }
     return v;
+  }
+
+  /** Interpolate along the mapped path and blend across the shoulders. */
+  profileHeight(m, lon, lat, v) {
+    let nearest = Infinity, station = 0, height = v;
+    for (const { x, y, z, dx, dy, len, start, rise } of m.segments) {
+      const px = (lon - x) * m.mx, py = (lat - y) * m.my;
+      const u = Math.max(0, Math.min(1, (px * dx + py * dy) / (len * len)));
+      const distance = Math.hypot(px - u * dx, py - u * dy);
+      if (distance < nearest) {
+        nearest = distance;
+        station = start + u * len;
+        height = z + u * rise;
+      }
+    }
+    const t = Math.max(0, Math.min(1, (m.width_m + m.ramp_m - nearest) / m.ramp_m,
+      station / m.taper_m[0], (m.total - station) / m.taper_m[1]));
+    return v + t * t * (3 - 2 * t) * (height - Math.min(nearest, m.width_m) * m.crown - v);
   }
 
   /** "platform": ground = level_m inside the rings; outside, a cut slope rising at m.slope back to the DTM (only lowers). */
@@ -140,7 +180,7 @@ export class DemGrid {
       for (let c = 0; c < this.cols; c++) {
         const lon = this.west + c * this.dlon;
         if (lon < w || lon > e) continue;
-        const v = this.h[r * this.cols + c];
+        const v = this.heightOrtho(lon, lat);
         if (v < mn) mn = v; if (v > mx) mx = v;
       }
     }
@@ -161,7 +201,7 @@ export async function loadDem(base) {
 
 export function createTerrainProvider(dem) {
   const tilingScheme = new Cesium.GeographicTilingScheme();
-  const W = 33, H = 33;
+  const W = 65, H = 65;
   return new Cesium.CustomHeightmapTerrainProvider({
     width: W,
     height: H,

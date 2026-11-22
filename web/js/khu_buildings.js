@@ -136,7 +136,9 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
     const { mesh, topEll } = buildPeaceHall(details.peacehall, rec, dem);
     const id = { bid: rec.props.id, part: 0, kind: "building" };
     rec.parts = [id];
-    rec.appearance = "brick arcade hall modelled from photographs: arched bays, white band and gold frieze, inset metal upper storey, clock tower with belfry and copper pyramid roof";
+    rec.appearance = "brick arcade hall with a shallow ribbed metal roof, gold frieze and clock tower with an open belfry";
+    rec.focusHeading = 231;
+    rec.roofShape = "Shallow ribbed metal roof (estimated)";
     rec.top = topEll;
     rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
     instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
@@ -160,8 +162,10 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
     const id = { bid: oid, part: 0, kind: "building" };
     rec.parts = [id];
     rec.appearance = pm.appearance;
+    rec.roofShape = pm.roof_shape;
     if (pm.name_en) rec.props.name_en ??= pm.name_en;
     rec.focusHeading = pm.focus_heading;
+    rec.focusPitch = pm.focus_pitch;
     rec.top = topEll;
     rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
     instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
@@ -270,7 +274,7 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
   }
 
   // observatory dome on the circular 천문대 footprint
-  if (details?.observatory && byId.has(details.observatory.id)) {
+  if (details?.observatory && byId.has(details.observatory.id) && !photoModels[details.observatory.id]) {
     const rec = byId.get(details.observatory.id);
     const [lon, lat] = details.observatory.center;
     const r = Math.min(7.5, details.observatory.footprint_radius_m * 0.36);

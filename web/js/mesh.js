@@ -11,6 +11,7 @@ export const STY = {
   BALUSTRADE: 16, ARCADE: 18, METAL: 19, CLOCK: 20, FOLIAGE: 21, TABLET: 22, BANDED: 23, NET: 24,
   ENGINEERING_WING: 25, FOREIGN_LANGUAGES_WINDOWS: 26, ELECTRONICS_BRICK: 27,
   WOOJUNGWON_WINDOWS: 28, WOOJUNGWON_GLASS: 29,
+  DORM_WINDOWS: 30,
 };
 
 const VS = `
@@ -371,6 +372,18 @@ void main() {
     if (min(fract(pane), 1.0 - fract(pane)) < 0.042 ||
         abs(fract(h / 1.68 + 0.5) - 0.5) < 0.023) col *= 0.62;
     spec = 0.59; shin = 64.0;
+  } else if (sty == 30.0) {                       // Second Dormitory: punched room windows and vertical piers
+    float bay = L / max(1.0, floor(L / bw + 0.5));
+    float x = abs((fract(u / bay) - 0.5) * bay), y = mod(h, fh);
+    float hw = min(0.87, bay * 0.32), sill = 0.81, head = fh - 0.48;
+    col = base * (x < bay * 0.38 ? 0.91 : 1.025);
+    if (h > max(gl, 0.0) && h < H - 0.36 && x < hw && y > sill && y < head) {
+      float var = hash(vec2(floor(u / bay), floor(h / fh)));
+      col = mix(glass(n, toEye, var), vec3(0.24, 0.36, 0.39), 0.53);
+      if (min(hw - x, min(y - sill, head - y)) < 0.063 || abs(y - sill - 0.31) < 0.042 ||
+          (x < 0.034 && y < sill + 0.31)) col = vec3(0.69, 0.73, 0.71);
+      spec = 0.48; shin = 52.0;
+    }
   } else if (sty == 21.0) {                       // foliage
     float n1 = vnoise(vec2(u, h) * 1.7), n2 = vnoise(vec2(u, h) * 6.0);
     col = base * (0.6 + 0.5 * n1 + 0.22 * n2);

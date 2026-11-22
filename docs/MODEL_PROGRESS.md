@@ -18,12 +18,23 @@ After-screenshots are renders of this project's own model (not the reference pho
 | 05 | 인조잔디구장/지하주차장 (turf field) | ground, nets and Engineering-side stairs modelled |
 | — | Campus roads + sidewalks (user request) | widths, sidewalks, kerbs, crossings |
 | 06 | 공학관 (College of Engineering) | photo-based model |
+| 07–08 | 원자로센터 and 공학실험동 (Reactor Center and Engineering Laboratory) | photo-based exteriors |
+| 09 | 체육대학관 (College of Physical Education) | colonnade, entry stairs and stylised stone lions |
 | 10 | 외국어대학관 (College of Foreign Languages) | photo-based model |
 | 11 | 경희공원 (Kyung Hee Park) | pagoda placed at map pin; garden outline not in OSM |
 | 31 | 전자정보/응용과학대학관 (College of Electronics Information and Applied Science) | photo-based model |
 | 14 | 대운동장 (Grand Stadium) | sunken bowl carved, terraces, track, field |
 | 04 (ground) | 우정원 site + parking | levelled below the main road (user report) |
 | 04 | 우정원 (Woojungwon Dormitory) | photo-based model |
+| — | Emart24 near Renaissance Park | roof and massing from aerial references, storefront estimated |
+| 12 | 멀티미디어교육관·글로벌관 (Multimedia Education Hall and Global Hall) | separate photo-based models |
+| 13 | 제2기숙사 (Second Dormitory A and B) | photo-based models with university floor counts |
+| 15–18 | Ceramics Hall, Greenhouse, Seonseung Peace Hall, and Life Sciences | photo-based exteriors and roof forms |
+| 19–20 | Teaching Farm and Experimental Research buildings | photo-based main blocks and aerial-based outbuildings |
+| 22 | 국제·경영대학관 (International Business and Management Building) | photo-based entrance and façade |
+| 23 | 학생회관 (Student Union) | photo-based entrance and façade |
+| 32 | 국제학관 (International Studies Building) | photo-based entrance and façade |
+| 33 | 천문대 (Astronomical Observatory) | dome shell, windows, arched entry and steps |
 
 **Order change (user request, 2026-11-21):** after 01–02, all ground work comes next: open spaces 03, 05,
 11, 14, 26, 27 and 28, then every `outdoor/` folder (roads, slopes, retaining walls, stairs, pergolas,
@@ -35,8 +46,8 @@ courts). The remaining buildings are done after that.
 
 - **OSM / position:** way/473963422, 59.2 × 5.5 m footprint frame, axis bearing 88.5° (east–west). The
   street face looks north to 덕영대로 and the campus face looks south (both confirmed in the photos). The
-  11.3 m opening comes from the footprint vertices around the entrance road (way/764171420). The paved
-  forecourts are OSM plazas way/1385683781 and way/1385685748.
+  11.3 m opening comes from the footprint vertices around the entrance road (way/764171420).
+  OSM way/585696414 covers part of the east forecourt. The park and basketball plazas lie farther south.
 - **Photos used:** all 25 in `01-neo-renaissance-main-gate/`. Main references: *street facing wide* (clean
   frontal elevation, used for counts and proportions), *campus side axis and crosswalk*, *campus side
   elevation aerial*, *central statuary and arch*, *stone panel and carving*, *western relief side angle*,
@@ -58,10 +69,12 @@ courts). The remaining buildings are done after that.
 - **Estimated:** every detail height except the documented 22.5 m total (guidebook). This includes column
   heights, the crown, the attic and the pavilion tops, scaled from the frontal photo with the 11.3 m
   opening as the reference length. Sculpture is stylised.
-- **Open questions:** the aerial video shows a paved forecourt on both sides of the road on the campus
-  side, but OSM maps a plaza only on the east side, so the west side is still drawn as park grass. The
-  wing ends look slightly curved in the fisheye night shots, but OSM and the aerial frames show straight
-  wings, so the model keeps them straight.
+- **Gate paving:** aerial imagery, the gate aerial video and the street-level paved-edge photo bound the
+  estimated stone surfaces on both sides of the gate. The pavement follows the park and planted edges.
+  The entrance connector (way/1224707680) meets the adjoining section of Deogyeong-daero, whose curb
+  is estimated from the aerial imagery.
+- **Open questions:** the wing ends look slightly curved in the fisheye night shots. The model uses
+  the straight wings shown in the OSM footprint and the aerial frames.
 - **Screenshots:** before `screenshots/places/01_gate_street_before.png`; after
   `screenshots/places/01_gate_street.png`, `screenshots/places/01_gate_campus.png`.
 - **Sculpture detail:** the roof groups use distinct poses and modeled hands, faces, drapery,
@@ -145,19 +158,20 @@ courts). The remaining buildings are done after that.
   through the same disjoint, per-kind ground pipeline. This also makes the "before" bug visible: half the
   pitch had been painted as plaza by the batch colour shift.
 - **Modelled:** turf with 5 m mowing stripes. A **"KHU" logo** fills the centre circle (letters ≈ 7.2 m
-  tall, read from the stand side). **6 m ball-stop nets** with posts every 4 m run on both ends and the
-  courts side (new see-through `NET` shader style). The
-  basketball courts are **mint green with terracotta keys and centre circles**, and the surrounding squares
-  are **terracotta brick**.
+  tall, read from the stand side). Mesh encloses all four edges, with tall ball-stop nets behind the goals
+  and lower fences along the basketball and Engineering touchlines. The two mint-green basketball
+  courts share a level deck and a centreline parallel to the turf. Their painted keys and centre circles
+  are terracotta, with brick paving around the courts.
+  [KHU reopening aerial photograph](https://news.khu.ac.kr/news_kor/user/webzine/gType.do?menuNo=500004&wcId=2999)
+  · [KHU sports facility photo](https://gpp.khu.ac.kr/bbs/board.php?bo_table=facility&wr_id=160)
 - **Revised stairs:** a broad tapered terrace with nine concrete treads, pale side coping, three mapped
   diamond planters (ways 1385685750–5752), lower planting beds, stone insets, and three upper tree
   pockets. The lower landing meets the pitch edge, and the upper brick landing joins the campus
   sidewalk. The official map photo, top-down photo, and two DreamVR aerial angles show the layout.
 - **Estimated:** net height, tread count and dimensions, landscaping details, logo size, and colours. Markings are
   standard-dimension layouts fitted to the OSM outline.
-- **Open questions:** the 30 m DTM is not flat across the pitch, so the turf follows a gentle slope. The
-  retaining wall with the car-park entrance (west side, aerial photo) is not in OSM; it is a candidate for
-  the outdoor/retaining-wall pass. The blue dugouts are not modelled.
+- **Open questions:** the retaining wall at the car-park entrance is visible west of the pitch in the
+  aerial, and the blue dugouts are visible along the stands.
 - **Screenshots:** before `screenshots/places/05_turf_field_top_before.png`; after
   `screenshots/places/05_turf_field_top.png`, `screenshots/places/05_turf_field_oblique.png`,
   `screenshots/places/05_turf_field_ground.png`.
@@ -179,6 +193,38 @@ courts). The remaining buildings are done after that.
   The entrance platform sits just above the highest terrain sample under the canopy.
 - Viewer renders of the [courtyard and facade](screenshots/places/06_engineering_courtyard.png)
   and the [entrance](screenshots/places/06_engineering_entrance.png).
+
+### 06a · 공과대학 별관 — College of Engineering Annex (under construction, 2026-11-22 revision)
+
+- **Sources:** The University Life, 2026-08-28 ("A New Engineering Building, Built for Students"):
+  groundbreaking 12 Aug 2026, about 18 months of work, completion planned for Dec 2027, three stories
+  (floor 3 a pavilion space), about 3,855 m², a courtyard inspired by the raised platform (월대) at Jongmyo.
+  The user also supplied six official renderings (aerial from the turf, oblique, court, interior, front and
+  corner views). The ikld.kr article could not be fetched (TLS error), so the numbers come from the first article.
+- **Not in OSM:** the outline is in `scripts/planned_buildings.json` as `planned/engineering-annex`. It is a
+  68 × 26 m rectangle parallel to the old west front and centred on its axis, 24 m in front of it. The size fits
+  the reported area (about 1,770 m² footprint, with floor 2 and the pavilion making up the rest). The same file
+  lists the OSM courtyard loop road, lawn and four parking areas that the site replaces. `build_features.py` drops
+  them and keeps trees off the site.
+- **Modelled (`m_engineering_annex`):** two glazed floors (5.0 m and 4.6 m) under a roof terrace. The white fluted
+  fascia thins towards both ends, with a timber soffit. Clusters of three slim columns carry it, and a planted stair
+  runs down from the north balcony. The sign ENGINEERING ANNEX is near the south-west corner, beside a corner
+  sculpture. The roof has planters, trees and stepped seating. The floor-3 pavilion stands at the north end: glazed
+  to the west and south, timber-clad behind, with a broad white roof and a clerestory box. Behind the annex is the
+  raised stone court at floor-2 level, with benches, beds, a sunken garden against the annex under white frames,
+  and broad steps up to the 1984 entrance.
+- **Levels (estimated):** ground floor 78.6 m and court 83.6 m. Both are terrain pads in `terrain_mods.json`.
+- **Old building revised from the renderings:** white render instead of the dusty off-white of the photographs.
+  The end blocks facing the turf are now blank, with one clerestory strip under a projecting cornice.
+- **Turf pavilion (05):** the east shelter on the turf/tennis plaza is replaced by the white pavilion of the
+  renderings. It is a raised deck with a flat-roofed pavilion, planters, two trees and pergola-covered steps
+  down to the west, plus white pillars and hedges along the tennis fence (`turf_pavilion` in `ground_objects.js`).
+- **Estimated:** everything about the annex geometry, the pavilion plan and all heights. These are renderings of
+  a building under construction, not survey data.
+- **Renders:** [before](screenshots/places/06a_annex_aerial_before.png),
+  [after, from the turf](screenshots/places/06a_annex_aerial.png),
+  [south-west corner](screenshots/places/06a_annex_corner.png),
+  [turf pavilion](screenshots/places/05_turf_pavilion.png).
 
 ## 10 · 외국어대학관 — College of Foreign Languages
 
@@ -332,7 +378,92 @@ them.
   [entrance canopy](screenshots/places/04_woojungwon_entrance.png), and
   [both courtyards](screenshots/places/04_woojungwon_courtyards.png).
 
-## Site-wide changes made in this session (user requests)
+## Terrain and building revisions, 2026-11-22
+
+The satellite source is FABDEM V1-2 at approximately 25 × 31 m. The near-level playing surfaces visible
+in the reference photos are now represented on their mapped outlines. Heights are estimated from
+the median FABDEM value at least 12 m inside each playing surface. The grass and dirt surfaces blend
+back to the surrounding terrain outside their boundaries. The stadium bowl and Woojungwon cut remain
+part of the ground model. The slope and hillshade layers now use the same grades shown by the viewer,
+including the estimated entrance aprons, on a 2.5 m display grid. The source measurements retain their
+original spacing.
+
+The Korean source checked for a higher-resolution replacement is the National Geographic Information
+Institute's DEM. Gyeonggi Province identifies a 5 m product. The portal requires its file-transfer workflow,
+and the VWorld contour download requires sign-in. Kakao and Naver provide map overlays or images for
+display. A campus elevation file was unavailable for this revision. [NGII DEM catalog](https://www.data.go.kr/data/15059920/fileData.do)
+[Gyeonggi guidance](https://climate.gg.go.kr/ols/open-request/read?pstSeCd=BBS005&pstSn=558)
+[VWorld contours](https://www.vworld.kr/dtmk/dtmk_ntads_s002.do?dsId=30185)
+[Kakao terrain overlay](https://apis.map.kakao.com/web/sample/addTerrainOverlay/)
+[Naver Static Map](https://api.ncloud-docs.com/docs/ai-naver-mapsstaticmap-raster)
+
+- The Foreign Languages classroom block's 66 m gate-facing wall was excluded by a depth test intended
+  for the broad wing backs. External north-facing classroom edges now receive the window pattern.
+- The standalone Emart24 beside Renaissance Park follows its mapped footprint, with green and cream
+  roof sections from the gate-side aerial, an estimated shopfront and an approach from Woojungwon.
+  KHU lists a separate convenience store on the Student Union's first floor.
+  [Gyeonggi Labor Rights Center](https://labor.gg.go.kr/move-worker01/sub-in-02/)
+  [KHU amenities guide](https://gsp.khu.ac.kr/upload/contents/202603/202603120235367360.pdf)
+- Woojungwon uses the aerial roof finish and two paved courtyards with planting strips. Second Dormitory
+  A and B have distinct roof colours, glazed corners, recessed rooms and stair approaches. Kyung Hee
+  documents 10 and 13 above-ground floors. Their roof heights are estimated.
+  [KHU Second Dormitory building information](https://dorm2.khu.ac.kr/20/2010.do)
+- Multimedia Education Hall follows the stadium-side photographs with tall window bands, stone piers,
+  a dark canopy and angled supports. Global Hall uses the shaded glazed entrance and shorter stair run
+  shown beside the access lane.
+- Student Union now has a central glazed entrance, broad south steps and two levels of side ribbon
+  windows. The two international studies buildings use the deep brick portals and horizontal glazing
+  visible in their map photos.
+
+## Main-gate boulevard and north sports area
+
+- Campus panoramas 5147 and 5148 show the straight boulevard on the campus side of the Main Gate.
+  The Woojungwon terrain cut previously pulled the west edge of the roadway downhill. The boulevard
+  now uses a shallow longitudinal grade and a consistent crown across its mapped alignment. The
+  connector descends to the lower Woojungwon drive, which stays level in front of the dormitory.
+  Absolute road elevations and the ramp profile are estimated from FABDEM and the views.
+- A straight flight of stone steps leaves the south edge of the Woojungwon lot, as seen in panorama
+  4733. Its upper walk continues toward the College of Foreign Languages. The stair placement,
+  rise, and path behind the trees are estimated from the views and the university accessibility map.
+  [Woojungwon panorama](https://vr2.dreamvrad.net/kyunghee_global/?s=pano4733)
+  · [KHU barrier-free campus map](https://great.khu.ac.kr/great/user/contents/view.do?menuNo=7200010)
+- Aerial panorama 4680 and street-level panorama 4743 show four north–south hard courts in a single
+  east–west row immediately south of the artificial turf. The model uses a level court apron, four
+  marked courts, nets, and perimeter fencing. The nearby secondary courts have a separate footprint.
+- The brick plaza between the turf and the hard courts has one white open-frame pergola and two
+  narrow shaded shelters. Their positions are registered approximately to the turf corners in the
+  aerial. The separate stair at the east end connects the plaza to the Engineering service road.
+  The stair route, landings, rails, and elevations are estimated from the aerial and adjoining terrain.
+- Physical Education (09) now uses the stadium-side and entrance photographs for its west-facing
+  Classical colonnade, arched upper windows, stone steps, and paired lion sculptures. The building
+  follows OSM way/455726113. Its height and façade dimensions are estimated.
+- Spring photos guide the flowering rows along the boulevard and the Multimedia Hall approach.
+  The ground file records mapped trunk locations where available and estimated positions elsewhere.
+  Blossom colours, tree heights and crown dimensions are approximate.
+  [KHU virtual campus panoramas](https://vr2.dreamvrad.net/kyunghee_global/)
+
+## Completion of the mapped building set
+
+- Near Seonseung Peace Hall, Ceramics Hall has red brick, ceramic façade panels, a glazed end bay, and
+  hillside steps. The Horticultural Biotechnology Greenhouse uses its grey masonry base and glazed
+  rooftop pavilions. Life Sciences has cream walls, yellow-brick entrance volumes, and a stepped roof.
+  Peace Hall's dark metal roof follows the shallow, rounded roof visible in the aerial photographs.
+- The Reactor Center uses its low pale exterior and glazed entry. The Engineering Laboratory has its
+  paired roof ridges, clerestory bands, and wide service doors. The two Experimental Research blocks
+  use their distinct grey panel and blue-roofed exteriors. The official map places building 19 at
+  the Teaching Farm site. The matching mapped Farm Building now appears in the campus list.
+  [Kyung Hee campus map](https://www.khu.ac.kr/kor/user/mapManager/view.do?menuNo=200357)
+- The Observatory uses a broad, sloped dome shell, a smaller crown dome, a radial band of windows,
+  and a glazed arch above the northeast access steps. The marked parking rows and circulation aisle
+  share a level concrete forecourt at the foot of the uphill entrance ramp. The lot elevation and blended
+  edges are estimated from FABDEM and the OSM outlines.
+  [Observatory panorama](https://vr2.dreamvrad.net/kyunghee_global/?s=pano5226)
+- All 41 mapped campus building footprints have individual models. For 14 smaller buildings,
+  including farm and research outbuildings, aerial imagery supplies most of the visible evidence.
+  Their roof forms and colours are approximate. The wooded outbuilding east of Ceramics Hall uses
+  an approximate footprint-based model because the roof is obscured.
+
+## Site-wide changes made in the previous session
 
 - **UI (Kyung Hee style):** split layout. On the left, a UI column with a crimson masthead (gold rule)
   and a section rail (Campus / Buildings / Terrain / Layers); the building details open in the same column. On

@@ -1,0 +1,31 @@
+{
+  "note": "Buildings under construction that are not yet in OpenStreetMap. Outlines are placed from official renderings relative to mapped neighbours, so every value here is estimated. 'supersedes' lists the OSM features that the construction site replaces (they are dropped from the derived layers).",
+  "buildings": [
+    {
+      "id": "planned/engineering-annex",
+      "name_ko": "공과대학 별관",
+      "name_en": "College of Engineering Annex (under construction)",
+      "status": "under construction",
+      "groundbreaking": "2026-08-12",
+      "completion_planned": "2027-12",
+      "building_type": "university",
+      "levels": 3,
+      "levels_source": "The University Life, 2026-08-28: three stories, floor 3 a pavilion space",
+      "ground_floor_m": 78.6,
+      "platform_m": 83.6,
+      "roof_above_ground_floor_m": 9.6,
+      "ring": [[127.0800835, 37.2466033], [127.0801115, 37.2459909], [127.0804047, 37.2459994],
+               [127.0803767, 37.2466119], [127.0800835, 37.2466033]],
+      "footprint_source": "Not in OSM. 68 x 26 m outline placed from the official KHU renderings on the lot in front of the College of Engineering (way/455725718), parallel to its west front and centred on its axis; size checked against the reported 3,855 m2 floor area",
+      "height_source": "Estimated from the official renderings: two glazed floors (5.0 m and 4.6 m) under a roof terrace; the floor-3 pavilion rises a further 4 m. Levels from The University Life (2026-08-28)",
+      "sources": [
+        "https://media.khu.ac.kr/bbs/board.php?bo_table=english&wr_id=19581297",
+        "https://www.ikld.kr/news/articleView.html?idxno=330355"
+      ],
+      "site_ring": [[127.0799654, 37.2467177], [127.080004, 37.245871], [127.0806017, 37.2458884],
+                    [127.0805631, 37.2467351], [127.0799654, 37.2467177]],
+      "supersedes": ["way/455725473", "way/455725716", "way/1385685755", "way/1385685756",
+                     "way/1385685757", "way/1385685758"]
+    }
+  ]
+}

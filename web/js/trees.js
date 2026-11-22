@@ -27,7 +27,7 @@ export async function buildTrees(viewer, dem, meta, arr, inClip, mobile, coll) {
     let seed = (i * 2654435761) >>> 0 || 1;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const th = arr[i * stride + 3] * (0.9 + 0.25 * rnd());
-    const z = arr[i * stride + 2] + dem.geoidN(lon, lat) - 0.3;
+    const z = dem.heightEllipsoid(lon, lat) - 0.3;
     const [e, n] = f.local(lon, lat);
     const G = new Local(mesh, f, [1, 0], [e, n]);
     const pine = rnd() < 0.5;

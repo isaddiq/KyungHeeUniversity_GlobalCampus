@@ -12,13 +12,14 @@ from datetime import datetime, timezone
 
 import numpy as np
 from pyproj import Transformer
-from shapely.geometry import Point, shape
+from shapely.geometry import LineString, Point, Polygon, shape
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
 from common import (CAMPUS_BBOX, FEATURE_BBOX, RAW, ROOT, TERRAIN_BBOX, WEB_DATA, read_json,
                     to_epsg5186, write_json)
 from dem import load
+from terrain_mods import Conditioner, PLAYING_SURFACES
 
 M_PER_DLON = 111_320.0 * np.cos(np.radians(37.2424))
 M_PER_DLAT = 110_950.0
@@ -60,6 +61,43 @@ def main():
             "samples": int(mask.sum()), "note": "FABDEM bare-earth, orthometric EGM2008"}
     check("Campus terrain is not flat", "pass" if elev["relief"] > 10 else "fail",
           f"Relief inside the boundary: {elev['min']:.1f}–{elev['max']:.1f} m ({elev['relief']:.1f} m), from {elev['samples']} DTM samples")
+
+    mods = read_json(WEB_DATA / "terrain" / "terrain_mods.json")["mods"]
+    conditioned = Conditioner(mods)
+    grades = []
+    for mod in mods:
+        if mod["id"] not in PLAYING_SURFACES:
+            continue
+        poly = Polygon(mod["ring"])
+        w, s, e, n = poly.bounds
+        x, y = np.meshgrid(np.linspace(w, e, 25), np.linspace(s, n, 25))
+        inside = np.array([poly.contains(Point(a, b)) for a, b in zip(x.ravel(), y.ravel())]).reshape(x.shape)
+        lon, lat = x[inside], y[inside]
+        original = dtm.sample(lon, lat)
+        modelled = conditioned(lon, lat, original)
+        grades.append({"id": mod["id"], "source_span_m": round(float(np.ptp(original)), 2),
+                       "modelled_span_m": round(float(np.ptp(modelled)), 2), "height_m": mod["height_m"]})
+    check("Local playing-surface grades", "pass" if grades and max(g["modelled_span_m"] for g in grades) <= 0.02 else "fail",
+          f"{len(grades)} playing surfaces use estimated local levels. Original in-field relief is "
+          f"{', '.join(str(g['source_span_m']) for g in grades)} m. Slope and hillshade use the rendered grades at "
+          f"{tmeta['overlays']['pixel_m'][0]:g} m/pixel.", values=grades)
+
+    profile = next(m for m in mods if m["id"] == "way/764171420")
+    scale = np.array([M_PER_DLON, M_PER_DLAT])
+    road = LineString(np.asarray(profile["points"])[:, :2] * scale)
+    crossfalls, heights = [], []
+    for s in np.linspace(25, road.length - 25, 50):
+        a, b = (np.asarray(road.interpolate(s + k).coords[0]) for k in (-0.25, 0.25))
+        unit = (b - a) / np.linalg.norm(b - a)
+        offsets = np.outer(np.array([-4.4, 0.0, 4.4]), [-unit[1], unit[0]])
+        lon, lat = ((np.asarray(road.interpolate(s).coords[0]) + offsets) / scale).T
+        levels = conditioned(lon, lat, dtm.sample(lon, lat))
+        crossfalls.append(float(np.ptp(levels)))
+        heights.append(float(levels[1]))
+    max_crossfall = max(crossfalls)
+    check("Main Gate boulevard crossfall", "pass" if max_crossfall < 0.15 else "fail",
+          f"The modeled carriageway varies by at most {max_crossfall:.2f} m across 8.8 m, with "
+          f"{np.ptp(heights):.2f} m of centreline relief in the sampled corridor. Profile estimated from FABDEM and panoramas 5147–5148.")
 
     # ---- vertical check against mapped peak elevations ----
     pk = [f for f in P if f["properties"]["kind"] == "peak" and f["properties"]["ele_osm"]]
@@ -131,8 +169,15 @@ def main():
           f"{near}/{len(inb)} campus buildings lie within 30 m of a mapped road/footway (median {np.median(dist):.1f} m)")
 
     det = read_json(WEB_DATA / "campus_details.json")
+    photo_models = det["photo_buildings"]
+    landmarks = {det[key]["id"] for key in ("gate", "library", "theatre", "peacehall", "artdesign")}
+    generic = [f["properties"]["id"] for f in inb if f["properties"]["id"] not in landmarks | photo_models.keys()]
+    aerial = sum(model.get("reference_quality") == "aerial estimate" for model in photo_models.values())
+    check("Campus building model coverage", "pass" if not generic else "warn",
+          f"{len(inb) - len(generic)}/{len(inb)} campus footprints use individual models. "
+          f"{aerial} small buildings use approximate aerial-based forms.", generic_ids=generic)
     check("Stylised Kyung Hee building appearance", "info",
-          f"Campus buildings use their real footprints and DTM ground, but their facades (windows per estimated storey, colours) are procedural. "
+          f"Campus buildings use OpenStreetMap footprints and DTM ground. {len(photo_models) - aerial} buildings use photo-based façades in addition to the landmark models. "
           f"Main gate: illustrative model on the footprint frame ({det['gate']['length_m']} × {det['gate']['depth_m']} m, opening {det['gate']['opening_m'][1]-det['gate']['opening_m'][0]:.1f} m from footprint vertices); its heights are estimated. "
           f"Amphitheatre: {len(det['amphitheatre']['tiers'])} seating terraces sliced from the real DTM. None of this detail is surveyed.")
     check("North orientation", "pass", "All geometry is in geographic coordinates on the WGS84 globe, so north follows from the coordinates. There is no local rotation or scaling.")
@@ -155,7 +200,10 @@ def main():
             "geometry": {"source": "OpenStreetMap", "status": "mapped (measured by contributors)",
                          "accuracy": "not quantified; typically 1–5 m for footprints digitised from imagery", "date": osm_ts},
             "height": {"value_m": p["height_m"], "status": p["height_status"], "source": p["height_source"], "confidence": p["height_confidence"]},
-            "ground_elevation": {"min_m": p["ground_min_m"], "max_m": p["ground_max_m"], "source": "FABDEM V1-2 (bilinear)", "status": "measured (DEM)", "accuracy": "metres-level; ~30 m posting"},
+            "ground_elevation": {"min_m": p["ground_min_m"], "max_m": p["ground_max_m"],
+                                 "source": "FABDEM V1-2 with site grades" if p.get("ground_adjusted") else "FABDEM V1-2 (bilinear)",
+                                 "status": "estimated" if p.get("ground_adjusted") else "measured (DEM)",
+                                 "accuracy": "metres-level; ~30 m source posting"},
             "missing": miss,
         })
     for f in R:
@@ -171,9 +219,10 @@ def main():
                       "geometry": {"source": "OpenStreetMap", "status": "mapped", "date": osm_ts}})
     feats.append({"id": "vegetation-instances", "layer": "trees", "count": trees["count"], "status": "approximated",
                   "note": trees["status"] + ". " + trees["method"]})
-    feats.append({"id": "terrain", "layer": "terrain", "status": "measured (satellite DEM, bare-earth corrected)",
+    feats.append({"id": "terrain", "layer": "terrain", "status": "satellite DTM with estimated local grades",
                   "source": "FABDEM V1-2 N37E127", "resolution": "1 arc-second (~24.6 m E-W × 30.9 m N-S)",
-                  "vertical_datum": "EGM2008", "extent_deg": [tmeta["west"], tmeta["south"], tmeta["east"], tmeta["north"]]})
+                  "vertical_datum": "EGM2008", "local_grades": "terrain/terrain_mods.json",
+                  "extent_deg": [tmeta["west"], tmeta["south"], tmeta["east"], tmeta["north"]]})
     write_json(WEB_DATA / "accuracy_report.json", {
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "status_vocabulary": {"documented": "value taken from a source attribute", "derived": "computed from a documented attribute with a stated rule",

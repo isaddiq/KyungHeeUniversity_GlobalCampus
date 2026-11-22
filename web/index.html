@@ -35,7 +35,7 @@
 
     <section class="tabpane active" id="tab-overview">
       <div class="kv" id="overviewStats"></div>
-      <p class="note">Kyung Hee campus buildings stand on their real OSM footprints and DTM ground and are shown with <b>stylised</b> colour and façades: windows are drawn for each estimated storey, the main gate, library and plaza obelisks are modelled from photographs, and the amphitheatre seats follow the real slope. The view is cropped to the university grounds. The terrain is a real bare-earth elevation model (FABDEM, 1″ ≈ 30 m), not a generated surface. Building footprints come from OpenStreetMap, cross-referenced with the official KHU campus map. Each building height is labelled <span class="badge documented">documented</span> <span class="badge derived">derived</span> or <span class="badge estimated">estimated</span>.</p>
+      <p class="note">The terrain uses FABDEM bare-earth elevations (1″ ≈ 30 m) with estimated local grades for playing fields and entrances. Building footprints come from OpenStreetMap and are cross-referenced with the official KHU campus map. Selected façades are modelled from photographs. The amphitheatre seats follow the terrain. Each building height is labelled <span class="badge documented">documented</span> <span class="badge derived">derived</span> or <span class="badge estimated">estimated</span>.</p>
       <button class="primary-btn" id="walkCampus"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6-2-3 1-4 4 2 2 3"/><path d="M11 8l-3 2-1 3M14 15l2 6"/></svg><span>Walk in from the main gate</span></button>
       <div class="legend" id="statusLegend">
         <div><i style="background:#ff6a3d"></i>Campus boundary (OSM relation 11246784)</div>
@@ -84,11 +84,12 @@
 
     <section class="tabpane" id="tab-layers">
       <h4>Show on the map</h4>
-      <label class="check"><input type="checkbox" data-layer="buildings" checked> Buildings (LOD1 mass)</label>
+      <label class="check"><input type="checkbox" data-layer="buildings" checked> Buildings</label>
       <label class="check"><input type="checkbox" data-layer="labels"> Building names</label>
       <label class="check"><input type="checkbox" data-layer="roads" checked> Roads, paths, stairs &amp; markings</label>
       <label class="check"><input type="checkbox" data-layer="landcover" checked> Sports fields, parking, plazas, lawns</label>
       <label class="check"><input type="checkbox" data-layer="trees" checked> Vegetation (visual approximation)</label>
+      <label class="check"><input type="checkbox" data-layer="cherries" checked> Cherry blossoms (photo-based)</label>
       <label class="check"><input type="checkbox" data-layer="boundary"> Campus boundary line</label>
       <label class="check"><input type="checkbox" data-layer="pois"> Entrance, bus stop and peak icons</label>
       <h4>Building colour</h4>

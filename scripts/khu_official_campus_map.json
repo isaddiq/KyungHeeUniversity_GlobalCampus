@@ -179,8 +179,9 @@
       "no": 19,
       "name_ko": "한방재료가공(경희보감)",
       "kind": "building",
-      "osm": [],
-      "name_en": "Kyung Hee Bogam and Farm Building"
+      "osm": ["way/585696420"],
+      "name_en": "Kyung Hee Bogam and Farm Building",
+      "name_en_by_osm": {"way/585696420": "Teaching Farm Building"}
     },
     {
       "no": 20,

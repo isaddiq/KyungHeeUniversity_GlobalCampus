@@ -155,9 +155,12 @@ def main():
     osm = read_json(RAW / "osm_overpass.json")
     official = read_json(ROOT_SCRIPTS / "khu_official_campus_map.json")
     overrides = read_json(ROOT_SCRIPTS / "height_overrides.json")["buildings"]
+    planned = read_json(ROOT_SCRIPTS / "planned_buildings.json")["buildings"]
+    superseded = {oid for pb in planned for oid in pb.get("supersedes", [])}   # replaced by a construction site
     osm_date = osm.get("osm3s", {}).get("timestamp_osm_base")
     retrieved = osm.get("_retrieved_utc")
     dtm, dsm = load()
+    dtm_raw, _ = load(raw=True)
     els = osm["elements"]
     clip = box(FEATURE_BBOX["west"], FEATURE_BBOX["south"], FEATURE_BBOX["east"], FEATURE_BBOX["north"])
 
@@ -200,6 +203,7 @@ def main():
         pts = interior_samples(g, 4.0 if area < 3000 else 6.0)
         gz = dtm.sample(pts[:, 0], pts[:, 1])
         gmin, gmax, gmean = float(gz.min()), float(gz.max()), float(gz.mean())
+        adjusted = np.any(np.abs(gz - dtm_raw.sample(pts[:, 0], pts[:, 1])) > 0.01)
 
         levels = parse_num(t.get("building:levels"))
         h_tag = parse_num(t.get("height"))
@@ -258,6 +262,7 @@ def main():
             "centroid": [round(rp.x, 7), round(rp.y, 7)],
             "footprint_area_m2": round(area, 1),
             "ground_min_m": round(gmin, 2), "ground_max_m": round(gmax, 2), "ground_mean_m": round(gmean, 2),
+            **({"ground_adjusted": True} if adjusted else {}),
             "height_m": round(height, 1), "height_status": h_status, "height_source": h_src,
             "height_confidence": conf,
             "levels": levels, "levels_status": levels_status,
@@ -267,6 +272,29 @@ def main():
             "footprint_source": "OpenStreetMap (" + oid + ")" + (f", source={t['source']}" if t.get("source") else ""),
         }
         bfeats.append({"type": "Feature", "geometry": rnd(g), "properties": props})
+        bgeoms.append(g)
+
+    # Buildings under construction (not in OSM yet): outlines placed from official renderings.
+    for pb in planned:
+        g = Polygon(pb["ring"])
+        rp = g.representative_point()
+        gz = dtm.sample(*interior_samples(g, 4.0).T)
+        gmin = float(gz.min())
+        height = pb["ground_floor_m"] + pb["roof_above_ground_floor_m"] - gmin
+        status_count["estimated"] += 1
+        bfeats.append({"type": "Feature", "geometry": rnd(g), "properties": {
+            "id": pb["id"], "official_no": None, "official_name_ko": None,
+            "name_ko": pb["name_ko"], "name_en": pb["name_en"], "name_en_source": "KHU news",
+            "building_type": pb["building_type"], "in_campus": campus_prep.contains(rp),
+            "centroid": [round(rp.x, 7), round(rp.y, 7)], "footprint_area_m2": round(geom_area_m2(g), 1),
+            "ground_min_m": round(gmin, 2), "ground_max_m": round(float(gz.max()), 2),
+            "ground_mean_m": round(float(gz.mean()), 2), "ground_adjusted": True,
+            "height_m": round(height, 1), "height_status": "estimated", "height_source": pb["height_source"],
+            "height_confidence": "low", "levels": pb["levels"], "levels_status": "documented",
+            "levels_source": pb["levels_source"], "roof_shape": "roof terrace with a floor-3 pavilion (estimated)",
+            "start_date": None, "construction": {k: pb[k] for k in ("status", "groundbreaking", "completion_planned", "sources")},
+            "footprint_source": pb["footprint_source"],
+        }})
         bgeoms.append(g)
 
     # overlap QA between building footprints
@@ -301,6 +329,8 @@ def main():
         if len(c) < 2:
             continue
         oid = f"way/{el['id']}"
+        if oid in superseded:
+            continue
         is_area = t.get("area") == "yes" and c[0] == c[-1] and len(c) >= 4
         if is_area:
             g = Polygon(c).intersection(clip)
@@ -355,7 +385,7 @@ def main():
             if t.get(k) == v:
                 cls, key = c, f"{k}={v}"
                 break
-        if cls is None:
+        if cls is None or f"{el['type']}/{el['id']}" in superseded:
             continue
         g = element_polygon(el)
         if g is None or g.is_empty:
@@ -376,6 +406,7 @@ def main():
             veg_polys.append(g)
         elif cls in ("sport", "parking", "water", "plaza", "construction", "cemetery", "farmland", "golf"):
             no_tree_polys.append(g)
+    no_tree_polys += [Polygon(pb["site_ring"]) for pb in planned if pb.get("site_ring")]   # paved construction sites
     # draw order: large areas first
     order = {"residential": 0, "industrial": 0, "school": 0, "farmland": 1, "cemetery": 1, "golf": 1,
              "construction": 1, "park": 2, "forest": 3, "scrub": 3, "grass": 4, "garden": 5, "sport": 6,
@@ -420,8 +451,7 @@ def main():
         for ix, x in enumerate(xs):
             jx = x + (hash01(ix, iy, 1) - 0.5) * dx * 0.9
             jy = y + (hash01(ix, iy, 2) - 0.5) * dy * 0.9
-            ground = float(dtm.sample(jx, jy))
-            chm = float(dsm.sample(jx, jy)) - ground
+            chm = float(dsm.sample(jx, jy) - dtm_raw.sample(jx, jy))
             p = Point(jx, jy)
             in_veg = veg_u is not None and veg_u.contains(p)
             if not in_veg and chm < 3.5:
@@ -438,6 +468,7 @@ def main():
             if hash01(ix, iy, 3) > keep:
                 continue
             th = float(np.clip(chm * 1.4 + 5.0, 6.0, 19.0)) * (0.8 + 0.4 * hash01(ix, iy, 4))
+            ground = float(dtm.sample(jx, jy))
             trees.append((jx - west, jy - south, ground, th, 1 if in_veg else 0))
             src_counter["osm_wood" if in_veg else "chm"] += 1
     # OSM-mapped individual trees (natural=tree) and tree rows (natural=tree_row, sampled every 7 m): real positions
@@ -455,6 +486,8 @@ def main():
         hh = parse_num(t.get("height")) or 9.0
         for k_, (lon_, lat_) in enumerate(pts_):
             mapped.append((lon_ - west, lat_ - south, float(dtm.sample(lon_, lat_)), float(hh) * (0.9 + 0.2 * hash01(el["id"] % 100000, k_, 5))))
+    sites = prep(unary_union([Polygon(pb["site_ring"]) for pb in planned if pb.get("site_ring")]))
+    mapped = [q for q in mapped if not sites.contains(Point(q[0] + west, q[1] + south))]
     if mapped:
         mp = np.array([[q[0] * M_PER_DLON, q[1] * M_PER_DLAT] for q in mapped])
         def far_from_mapped(tr):

@@ -433,7 +433,29 @@ export function buildPeaceHall(ph, rec, dem) {
   walls(ph.ring_m, base, HW, (a, b) => (onEnd(a) && onEnd(b)) ? [STY.ARCADE, 10.8, 12.5, BRICK] : [STY.ARCADE, 8.6, 5.0, BRICK]);
   roof(ph.ring_m, HW - 0.8, ROOF);
   walls(ph.upper_m, HW - 0.8, HU, () => [STY.METAL, 3, 3, ROOF]);
-  roof(ph.upper_m, HU, ROOF);
+  if (ph.roof_ridge_m) {
+    const [[rx, a], [, b]] = ph.roof_ridge_m;
+    const G = new Local(mesh, f);
+    const eave = ph.upper_m;
+    const cap = ([x, y]) => [rx + 0.024 * (x - rx), Cesium.Math.clamp(y, a, b), HU + 2.15];
+    for (let k = 0; k + 1 < eave.length; k++) {
+      const p = [...eave[k], HU], q = [...eave[k + 1], HU], c = cap(q), d = cap(p);
+      const [dx, dy] = [q[0] - p[0], q[1] - p[1]];
+      if (Math.hypot(dx, dy) < 0.02) continue;
+      const n = [dy * (d[2] - p[2]), -dx * (d[2] - p[2]), dx * (d[1] - p[1]) - dy * (d[0] - p[0])];
+      const sign = n[2] < 0 ? -1 : 1;
+      G.quad(p, q, c, d, n.map((v) => v * sign), [p, q, c, d].map(([x, y]) => [x, y]),
+        ROOF, STY.STATUE, 2.15, Math.hypot(dx, dy));
+      // The radial joints are visible in the aerial view across the rounded metal roof.
+      const span = Math.max(1, Math.round(Math.hypot(dx, dy) / 2.5));
+      for (let j = 0; j < span; j++) {
+        const s = j / span;
+        const start = [p[0] + dx * s, p[1] + dy * s, HU + 0.037];
+        const end = [d[0] + (c[0] - d[0]) * s, d[1] + (c[1] - d[1]) * s, d[2] + 0.037];
+        G.cylBetween(start, end, 0.032, hex("#666c70"), STY.STATUE, 4);
+      }
+    }
+  } else roof(ph.upper_m, HU, ROOF);
   // clock tower
   const T = new Local(mesh, f, ph.tower_axis, ph.tower_center_m);
   T.fh = 0; // plain brick shaft (no arcade arches)
@@ -507,9 +529,14 @@ export function buildPhotoModel(pm, rec, dem) {
     } else if (p.t === "cyl") {
       G.cyl({ s: p.s, t: p.t_, z0: p.z0, z1: p.z1, r0: p.r0, r1: p.r1, seg: p.seg, col, sty: p.sty });
     } else if (p.t === "sphere") {
-      G.sphere({ s: p.s, t: p.t_, z: p.z, r: p.r, sz: p.sz, jit: p.jit, col, sty: STY.FOLIAGE, seg: 12 });
+      G.sphere({ s: p.s, t: p.t_, z: p.z, r: p.r, sz: p.sz, jit: p.jit, col, sty: p.sty ?? STY.FOLIAGE, seg: 12 });
     } else if (p.t === "profile") {
       G.profile(p.points, p.t0, p.t1, col);
+    } else if (p.t === "panel") {
+      const [a, b, c, d] = p.points;
+      const width = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const height = c[2] - b[2];
+      G.quad(a, b, c, d, p.normal, [[0, 0], [width, 0], [width, height], [0, height]], col, p.sty, height, width);
     }
   }
   return { mesh, topEll: datum + pm.top_m };

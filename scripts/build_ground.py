@@ -1,6 +1,6 @@
 """Ground surfaces + markings for the university grounds (draped on the terrain in the viewer).
 
-Everything is placed on real OSM geometry (campus only):
+Surfaces are based on OSM geometry and site imagery within the campus view:
   roads/paths  : surface strips at their OSM (or class-default) width; centre lines on through roads
   steps        : OSM highway=steps drawn with tread stripes every 0.4 m
   sports       : leisure=pitch/stadium/track filled by surface type; soccer, tennis and basketball line
@@ -91,9 +91,34 @@ def arc_line(P, cx, cy, r, a0, a1, n=36):
 
 # ---- photo-derived per-feature details (estimated; see docs/MODEL_PROGRESS.md) ----
 PLAZA_SURFACE = {"way/1385685748": "brick"}     # 05: terracotta brick around the courts
+# Paving around both gate wings, traced from aerial imagery and checked against the ground photos.
+# The entrance road takes priority where it passes between the wings.
+GATE_PAVING = [
+    (127.0779669, 37.2474881), (127.0781922, 37.2474903), (127.0782620, 37.2475159),
+    (127.0784470, 37.2475159), (127.0785114, 37.2475116), (127.0785677, 37.2475223),
+    (127.0787260, 37.2475543), (127.0788199, 37.2475693), (127.0788494, 37.2474945),
+    (127.0788574, 37.2474454), (127.0788628, 37.2473195), (127.0788574, 37.2472340),
+    (127.0788145, 37.2471999), (127.0788038, 37.2471615), (127.0788118, 37.2471038),
+    (127.0788279, 37.2470632), (127.0784739, 37.2470462), (127.0783719, 37.2470462),
+    (127.0782727, 37.2470056), (127.0782459, 37.2470355), (127.0781869, 37.2470675),
+    (127.0781010, 37.2470867), (127.0780957, 37.2471550), (127.0780635, 37.2472170),
+    (127.0780393, 37.2472960), (127.0780045, 37.2473387), (127.0779964, 37.2473750),
+    (127.0779669, 37.2474198),
+]
+# The south curb of Deogyeong-daero defines the street edge of the gate paving.
+GATE_STREET = [
+    (127.0772508, 37.2479344), (127.0794797, 37.2479344), (127.0794797, 37.2477038),
+    (127.0791927, 37.2476354), (127.0789164, 37.2475799), (127.0788199, 37.2475693),
+    (127.0787260, 37.2475543), (127.0785677, 37.2475223), (127.0785114, 37.2475116),
+    (127.0784470, 37.2475159), (127.0782620, 37.2475159), (127.0781922, 37.2474903),
+    (127.0779669, 37.2474881), (127.0776263, 37.2474796), (127.0772508, 37.2474839),
+]
+GATE_CONNECTOR = "way/1224707680"
 BB_SCHEME = {"way/585696427": "green", "way/585696429": "green"}          # 05: mint courts, terracotta keys
 ENGINEERING_TERRACE = "way/1385685749"
 TERRACE_BEDS = {"way/1385685750", "way/1385685751", "way/1385685752"}
+TURF_TENNIS = "way/455725380"
+OBSERVATORY_PATH = "way/778946322"  # pale paved perimeter visible around the dome
 SOCCER_SPECS = {
     # 05 인조잔디구장: striped turf, centre logo, ball-stop nets and the Engineering-side terrace
     "way/326869014": {"stripes": 5.0, "logo": "KHU", "net_h": 6.0, "courts": "way/585696427",
@@ -105,14 +130,14 @@ STROKES = {  # letter strokes in a 0.9 x 1.6 box
     "U": [[(0, 1.6), (0, 0.4), (0.15, 0.1), (0.45, 0), (0.75, 0.1), (0.9, 0.4), (0.9, 1.6)]],
 }
 OBJ_EXTRA = []   # 3D ground objects produced while laying out surfaces (nets and terraces)
-TERRAIN_MODS = []   # per-model "level" terrain mods (photo_buildings[...].terrain_mods), merged into terrain_mods.json
 STADIUM_SPECS = {
     # 14 대운동장: concrete terrace steps all round the oval, sand running track, natural-grass field with a low
     # green fence, goals at both ends, railing along the rim (13 reference photos, 2017-2025). Draped on the
     # DTM (the 30 m DTM cannot hold a level field; 3D steps would float or bury).
     "way/455725379": {"track": 9.0, "fence_h": 1.2, "rail_h": 1.1, "goals": True},
 }
-from terrain_mods import BOWLS as _BOWLS   # stands/ramp/steps/rise: the same numbers carve the terrain
+from terrain_mods import (BOWLS as _BOWLS, BASKETBALL_COURTS, OBSERVATORY_APRON, TURF_STAIR,
+                          WOOJUNGWON_STAIR, WOOJUNGWON_STAIR_W, WOOJUNGWON_WALK)
 for _k, _v in _BOWLS.items():
     STADIUM_SPECS.setdefault(_k, {}).update(_v)
 
@@ -252,10 +277,11 @@ def soccer(poly_m, src, land=None):
             x0 = -tw / 2 + i * (0.9 * sc + gap)
             for stroke in STROKES[ch]:
                 add_line(LineString([P(x0 + u * sc, -0.8 * sc + v * sc) for u, v in stroke]), "paint", 0.55)
-        # Nets on the two ends and the courts-side long edge.
+        # Ball-stop nets behind the goals and lower mesh fencing along both touchlines.
         hl, hw = L / 2 - 0.3, W / 2 - 0.3
-        for seg in ([P(-hl, -hw), P(-hl, hw)], [P(-hl, hw), P(hl, hw)], [P(hl, hw), P(hl, -hw)]):
-            OBJ_EXTRA.append({"k": "net", "id": src, "c": coords(d(LineString(seg))), "h": spec["net_h"]})
+        edge = list(rect_line(P, -hl, -hw, hl, hw).coords)
+        for a, b, height in zip(edge, edge[1:], (1.55, spec["net_h"], 1.55, spec["net_h"])):
+            OBJ_EXTRA.append({"k": "net", "id": src, "c": coords(d(LineString([a, b]))), "h": height})
         if land is not None:
             engineering_terrace(land, spec["terrace"], c, ua, ub, W)
     hl, hw = L / 2 - 1.5, W / 2 - 1.5
@@ -273,29 +299,116 @@ def soccer(poly_m, src, land=None):
 
 def tennis(poly_m, src):
     c, ua, ub, L, W = rect_frame(poly_m)
-    n = max(1, int((W + 3) // 17.0))
+    hard = src == TURF_TENNIS
+    if hard:
+        # Four north–south courts across the wider east–west span in aerial panorama 4680.
+        ua, ub, L, W = ub, ua, W, L
+    n = 4 if hard else max(1, int((W + 3) // 17.0))
     pitch = W / n
     for k in range(n):
         yc = -W / 2 + pitch * (k + 0.5)
         P = F(c, ua, ub)
         Q = lambda x, y, yc=yc: P(x, y + yc)
-        add_fill(Polygon([Q(-15.5, -8.0), Q(15.5, -8.0), Q(15.5, 8.0), Q(-15.5, 8.0)]).intersection(poly_m.buffer(0.5)), "court_out", src)
-        add_fill(Polygon([Q(-11.885, -5.485), Q(11.885, -5.485), Q(11.885, 5.485), Q(-11.885, 5.485)]), "court_in", src)
+        surround = "tennis_runoff" if hard else "court_out"
+        play = "tennis_hard" if hard else "court_in"
+        add_fill(Polygon([Q(-15.5, -8.0), Q(15.5, -8.0), Q(15.5, 8.0), Q(-15.5, 8.0)]).intersection(poly_m), surround, src)
+        add_fill(Polygon([Q(-11.885, -5.485), Q(11.885, -5.485), Q(11.885, 5.485), Q(-11.885, 5.485)]), play, src)
         add_line(rect_line(Q, -11.885, -5.485, 11.885, 5.485), "paint", 0.08)
         for y in (-4.115, 4.115):
             add_line(LineString([Q(-11.885, y), Q(11.885, y)]), "paint", 0.08)
         for x in (-6.4, 6.4):
             add_line(LineString([Q(x, -4.115), Q(x, 4.115)]), "paint", 0.08)
         add_line(LineString([Q(-6.4, 0), Q(6.4, 0)]), "paint", 0.08)
-        add_line(LineString([Q(0, -6.0), Q(0, 6.0)]), "net", 0.12)
+        net = LineString([Q(0, -6.3), Q(0, 6.3)])
+        if hard:
+            OBJ_EXTRA.append({"k": "net", "id": src, "c": coords(d(net)), "h": 0.94, "post_spacing": 14})
+        else:
+            add_line(net, "net", 0.12)
+    if hard:
+        for segment in _segments(poly_m.exterior):
+            OBJ_EXTRA.append({"k": "net", "id": src, "c": coords(d(segment)), "h": 3.1})
 
 
-def basketball(poly_m, src):
+def turf_access():
+    """Plaza structures registered from the overhead aerial with the turf corners as control points."""
+    for name, p, long, wide in [
+        ("west", [127.0788814, 37.2459879], 8.8, 2.65),
+        ("centre", [127.0791501, 37.2460099], 6.3, 8.9),
+    ]:
+        OBJ_EXTRA.append({"k": "pergola", "id": "turf-shelter-" + name, "p": p, "axis": [0.03345, -0.99944],
+                          "length": long, "width": wide, "open_roof": name == "centre",
+                          "source": "KHU aerial panorama 4680; approximate plan registration from the turf corners"})
+    add_line(m(LineString(TURF_STAIR)), "road_paving", 3.1, "turf-engineering-stair")
+    OBJ_EXTRA.append({"k": "stair", "id": "turf-engineering-stair", "c": TURF_STAIR, "w": 3.0,
+                      "source": "KHU aerial panorama 4680; Engineering-side return stair beside the tennis plaza"})
+    # The east shelter is replaced by the white pavilion of the Engineering Annex renderings (KHU, 2026): a raised
+    # deck at the east end of the plaza with a flat-roofed pavilion, planters, pergola-covered steps down to the
+    # west and white pillars along the tennis fence. Anchor = north-east corner of the deck; s runs south.
+    OBJ_EXTRA.append({"k": "turf_pavilion", "id": "turf-pavilion", "p": [127.0796398, 37.2460544],
+                      "axis": [0.03345, -0.99944], "deck": [14.0, 12.0, 1.2],
+                      "source": "Official College of Engineering Annex renderings (KHU, 2026); plan estimated from the turf and court outlines"})
+
+
+def cherry_blossoms(roads, land, clip):
+    """Photo-identified flowering rows on the boulevard and the Multimedia approach."""
+    by_id = {f["properties"]["id"]: m(shape(f["geometry"])) for f in roads}
+    buildings = read_json(WEB_DATA / "buildings.geojson")["features"]
+    blocked = unary_union(
+        [m(shape(f["geometry"])).buffer(1.6) for f in buildings if f["properties"]["in_campus"]] +
+        [m(shape(f["geometry"])) for f in land if f["properties"]["in_campus"] and f["properties"]["class"] in ("sport", "parking", "water")] +
+        [by_id[f["properties"]["id"]].buffer(f["properties"]["width_m"] / 2 + 0.9)
+         for f in roads if f["properties"]["in_campus"] and f["geometry"]["type"] == "LineString"
+         and f["properties"].get("tunnel") not in ("yes", "building_passage")])
+    result, placed = [], []
+
+    def add(p, source, tree_id=None):
+        if not clip.covers(p) or blocked.covers(p) or any(p.distance(q) < 4.3 for q in placed):
+            return
+        index = len(placed)
+        placed.append(p)
+        result.append({"k": "cherry", "id": tree_id or f"photo-cherry-{index + 1}", "p": coords(d(p))[0],
+                       "h": round(5.35 + 1.65 * (0.5 + 0.5 * math.sin(index * 4.31)), 2),
+                       "rot": round((index * 1.37) % (2 * math.pi), 3), "source": source})
+
+    source = "Gate approach and campus cherry avenue spring photographs"
+    for e in read_json(WEB_DATA.parent.parent / "data" / "raw" / "osm_overpass.json")["elements"]:
+        lon, lat = e.get("lon", 0), e.get("lat", 0)
+        if e.get("tags", {}).get("natural") == "tree" and 127.07859 <= lon <= 127.07867 and 37.24574 <= lat <= 37.24669:
+            add(m(Point(lon, lat)), source + "; mapped trunk position; species inferred from the row", f"node/{e['id']}")
+
+    west_road_edge = by_id["way/764171420"].offset_curve(9.6)
+    for s in range(92, 269, 9):
+        add(west_road_edge.interpolate(s), source + "; estimated trunk position")
+
+    approach = LineString(list(by_id["way/423471655"].coords)[12:20])
+    for side in (-1, 1):
+        edge = approach.offset_curve(side * 4.7)
+        for s in range(5 + (2 if side > 0 else 0), round(edge.length) - 3, 8):
+            add(edge.interpolate(s), "Multimedia Hall spring walkway photographs; estimated trunk position")
+    return result
+
+
+def basketball_frames(land):
+    """Put both painted courts on the same axis parallel to the turf touchline."""
+    sites = {p["id"]: m(shape(f["geometry"])) for f in land if (p := f["properties"])["id"]
+             in (*BASKETBALL_COURTS, "way/326869014")}
+    _, ua, ub, _, _ = rect_frame(sites["way/326869014"])
+    centers = [rect_frame(sites[oid])[0] for oid in BASKETBALL_COURTS]
+    lateral = [x * ub[0] + y * ub[1] for x, y in centers]
+    row = sum(lateral) / len(lateral)
+    return {oid: ((x + (row - offset) * ub[0], y + (row - offset) * ub[1]), ua, ub)
+            for oid, (x, y), offset in zip(BASKETBALL_COURTS, centers, lateral)}
+
+
+def basketball(poly_m, src, frame=None):
     c, ua, ub, L, W = rect_frame(poly_m)
-    P = F(c, ua, ub)
-    s = min(1.0, (L - 2) / 28.0, (W - 2) / 15.0)
+    P = F(*(frame if frame is not None else (c, ua, ub)))
+    # A common inset fits both mapped pads and matches the spacing in the overhead photograph.
+    s = 0.94 if frame is not None else min(1.0, (L - 2) / 28.0, (W - 2) / 15.0)
     hl, hw = 14 * s, 7.5 * s
     green = BB_SCHEME.get(src) == "green"
+    surround = poly_m if frame is None else Polygon(rect_line(P, -hl - 0.7, -hw - 0.6, hl + 0.7, hw + 0.6))
+    add_fill(surround, "court_surround", src)
     add_fill(Polygon([P(-hl, -hw), P(hl, -hw), P(hl, hw), P(-hl, hw)]), "court_bbg" if green else "court_bb", src)
     if green:   # terracotta keys and centre circle (photographs)
         add_fill(Point(P(0, 0)).buffer(1.8 * s, 24), "court_key", src)
@@ -342,6 +455,10 @@ def main():
     details = read_json(WEB_DATA / "campus_details.json")
     clip = details["clip"]
     clip_m = m(Polygon(clip["rings"][0]))
+    terrain = read_json(WEB_DATA / "terrain" / "terrain_mods.json")
+    observatory_parking = next(mod for mod in terrain["base"] if mod["id"] == "observatory-parking")
+    add_fill(m(Polygon(observatory_parking["ring"])).intersection(clip_m), "concrete", OBSERVATORY_APRON)
+    court_frames = basketball_frames(land)
     surf = {"trunk": "asphalt", "primary": "asphalt", "secondary": "asphalt", "tertiary": "asphalt", "unclassified": "asphalt",
             "residential": "asphalt", "service": "asphalt", "living_street": "asphalt", "track": "gravel",
             "pedestrian": "paving", "footway": "paving", "cycleway": "asphalt_red", "path": "path", "steps": "steps"}
@@ -362,7 +479,7 @@ def main():
             elif "tennis" in sport:
                 add_fill(g, "court_surround", src); tennis(g, src)
             elif "basketball" in sport:
-                add_fill(g, "court_surround", src); basketball(g, src)
+                basketball(g, src, court_frames.get(src))
             elif src in STADIUM_SPECS:
                 stadium(g, src)
             elif "baseball" in sport:
@@ -384,6 +501,8 @@ def main():
         else:
             continue
         counts[k] = counts.get(k, 0) + 1
+    add_fill(m(Polygon(GATE_PAVING)).intersection(clip_m), "paving", "main-gate-paving")
+    add_fill(m(Polygon(GATE_STREET)).intersection(clip_m), "asphalt", "main-gate-street")
     unmarked_areas = []
     for oid, model in details.get("photo_buildings", {}).items():
         for surface in model.get("pavement", []):
@@ -392,11 +511,15 @@ def main():
             add_fill(g, surface["kind"], oid)
             if surface.get("unmarked"):
                 unmarked_areas.append(g)
-        TERRAIN_MODS.extend({**mod, "id": oid} for mod in model.get("terrain_mods", []))
+    turf_access()
+    add_line(m(LineString(WOOJUNGWON_WALK)), "road_paving", WOOJUNGWON_STAIR_W, "woojungwon-foreign-languages-walk")
+    OBJ_EXTRA.append({"k": "stair", "id": "woojungwon-foreign-languages-stair", "c": WOOJUNGWON_STAIR,
+                      "w": WOOJUNGWON_STAIR_W,
+                      "source": "KHU panorama 4733 and university barrier-free map; estimated position and dimensions"})
     # ---- roads, paths, steps ----
     for f in roads:
         p = f["properties"]
-        if not p["in_campus"] or p.get("tunnel") in ("yes", "building_passage"):
+        if (not p["in_campus"] and p["id"] != GATE_CONNECTOR) or p.get("tunnel") in ("yes", "building_passage"):
             continue
         g = m(shape(f["geometry"])).intersection(clip_m)
         if g.is_empty:
@@ -404,15 +527,18 @@ def main():
         hw_ = p["highway"]
         if f["geometry"]["type"] == "Polygon":
             add_fill(g, "paving", p["id"]); continue
+        if p["id"] == OBSERVATORY_PATH:
+            add_line(g, "road_paving", 3.3, OBSERVATORY_PATH)
+            continue
         kind = surf.get(hw_, "paving")
-        w = max(1.2, p["width_m"])
+        w = 9.5 if p["id"] == GATE_CONNECTOR else max(1.2, p["width_m"])
         add_line(g, "road_" + kind, w, p["id"])
         for ln in ([g] if g.geom_type == "LineString" else getattr(g, "geoms", [])):
             if ln.geom_type != "LineString":
                 continue
             if hw_ in ("tertiary", "secondary", "primary", "unclassified", "residential"):
                 add_line(ln, "centre_yellow", 0.15)
-            elif hw_ == "service" and w >= 6 and p.get("service") != "parking_aisle" and p.get("oneway") != "yes":
+            elif hw_ == "service" and w >= 6 and p["id"] != GATE_CONNECTOR and p.get("service") != "parking_aisle" and p.get("oneway") != "yes":
                 for off in (-0.14, 0.14):          # double yellow centre line (campus road photos)
                     cl = ln.offset_curve(off)
                     if not cl.is_empty:
@@ -433,7 +559,7 @@ def main():
     from shapely.geometry import box as _box
     from shapely.ops import unary_union as _uu
     from dem import load as _load
-    dtm, dsm = _load()
+    dtm, dsm = _load(raw=True)
     B = read_json(WEB_DATA / "buildings.geojson")["features"]
     blocked = _uu([m(shape(f["geometry"])).buffer(6) for f in B if f["properties"]["in_campus"]] +
                   [m(shape(f["geometry"])) for f in land if f["properties"]["in_campus"] and f["properties"]["class"] in ("sport", "parking", "plaza", "water")])
@@ -467,8 +593,8 @@ def main():
     # Overlapping ground fills inside one GroundPrimitive have no defined draw order (a park polygon could
     # hide the plaza and flowerbeds inside it), so make them disjoint: every fill minus all higher-priority fills.
     prio = {"forest": 0, "grass": 1, "plaza": 2, "brick": 2, "paving": 3, "parking": 3, "dirt": 4, "turf": 4, "court_surround": 4,
-            "terrace": 4.2, "sand": 4.3, "field": 4.4, "turf2": 4.5, "garden": 5.45, "court_out": 6, "court_in": 7, "court_bb": 7, "court_bbg": 7, "court_key": 7.5, "water": 8,
-            "path": 5.2, "gravel": 5.3, "sidewalk": 5.35, "kerb": 5.36, "paving": 5.4, "asphalt": 5.5, "asphalt_red": 5.6, "steps": 5.7,
+            "terrace": 4.2, "sand": 4.3, "field": 4.4, "turf2": 4.5, "garden": 5.45, "court_out": 6, "tennis_runoff": 6, "court_in": 7, "tennis_hard": 7, "court_bb": 7, "court_bbg": 7, "court_key": 7.5, "water": 8,
+            "path": 5.2, "gravel": 5.3, "sidewalk": 5.35, "kerb": 5.36, "paving": 5.4, "asphalt": 5.5, "concrete": 5.55, "asphalt_red": 5.6, "steps": 5.7,
             "tread": 9, "line_dark": 9.1, "line_yellow": 9.2, "line_white": 9.3}
     fills.sort(key=lambda e: -prio.get(e["k"], 2))
     taken, disjoint = None, []
@@ -483,13 +609,11 @@ def main():
                 disjoint.append({**e, "c": [coords(dq.exterior)] + [coords(r) for r in dq.interiors]})
     fills[:] = sorted(disjoint, key=lambda e: prio.get(e["k"], 2))
     objects = ground_objects(land) + OBJ_EXTRA + pin_landmarks(roads)
-    # terrain_mods.json: base mods from terrain_mods.py (sunken stadium, levelled sites) + per-model level mods
-    tm_path = WEB_DATA / "terrain" / "terrain_mods.json"
-    tm = read_json(tm_path) if tm_path.exists() else {}
-    write_json(tm_path, {**tm, "mods": list(tm.get("base", [])) + TERRAIN_MODS}, compact=True)
+    from terrain_mods import write_surface
+    write_surface(terrain["base"], details)
     write_json(WEB_DATA / "ground.json", {
-        "note": "Surfaces on OSM geometry (campus only), made disjoint by priority. Sports markings and parking stall lines are standard-dimension layouts fitted to each mapped outline - illustrative, not surveyed paint. 'objects' are 3D ground details (fountains, hedges, planters) on OSM outlines; their heights and forms are estimated from reference photographs.",
-        "fills": fills, "lines": lines, "objects": objects}, compact=True)
+        "note": "Surfaces based on OSM geometry and site imagery, made disjoint by priority. Sports markings and parking stall lines are standard-dimension layouts fitted to each mapped outline - illustrative, not surveyed paint. 'objects' are 3D ground details (fountains, hedges, planters) on OSM outlines; their heights and forms are estimated from reference photographs.",
+        "fills": fills, "lines": lines, "objects": objects, "cherries": cherry_blossoms(roads, land, clip_m)}, compact=True)
     print("fills", len(fills), "lines", len(lines), "objects", len(objects), counts)
 
 
@@ -518,7 +642,7 @@ def sidewalks_and_crossings(roads, land, clip_m):
             continue
         if f["geometry"]["type"] == "Polygon":
             walk_ways.append(g.boundary)              # pedestrian areas count as existing walks
-        elif p["highway"] in ("footway", "pedestrian", "path", "steps", "cycleway"):
+        elif p["highway"] in ("footway", "pedestrian", "path", "steps", "cycleway") or p["id"] == OBSERVATORY_PATH:
             walk_ways.append(g)
             walk_lines.extend(_lines(g))
         elif p["highway"] in ("service", "tertiary", "secondary", "residential", "unclassified"):

@@ -79,6 +79,8 @@ export class CampusLayers {
     pois = { ...pois, features: pois.features.filter((f) => this.inClip(...f.geometry.coordinates)) };
     this.boundaryFC = boundary;
     onProgress("Building terrain-draped layers…");
+    this.cherries = ground?.cherries ?? [];
+    this.cherryPrimitives = buildGroundObjects(this.viewer, this.dem, this.cherries, this.mobile);
     if (ground) this.addGround(ground);
     else { this.addLandcover(landcover); this.addRoads(roads); this.landcoverPrimitives = [this.landcoverPrimitive]; }
     this.addBoundary(boundary);
@@ -107,7 +109,9 @@ export class CampusLayers {
         buf = await (await fetch(`${base}/trees.bin`)).arrayBuffer();
       }
       await new Promise((r) => setTimeout(r, 250));
-      this.treeCount = await buildTrees(this.viewer, this.dem, meta, new Float32Array(buf), this.inClip, this.mobile, this.treePrimitive);
+      const inPlantingArea = (lon, lat) => this.cherries.some(({p}) => Math.hypot((lon - p[0]) * 88700, (lat - p[1]) * 111000) < 3.5);
+      this.treeCount = await buildTrees(this.viewer, this.dem, meta, new Float32Array(buf),
+        (lon, lat) => this.inClip(lon, lat) && !inPlantingArea(lon, lat), this.mobile, this.treePrimitive);
     })();
   }
 
@@ -300,9 +304,10 @@ export class CampusLayers {
   // ---------------------------------------------------------------- ground surfaces (fields, courts, parking, roads, markings)
   addGround(g) {
     const FILL = { grass: "#6e9a4c", garden: "#7cab55", plaza: "#dcd7cb", paving: "#d4cec1", dirt: "#c6a57b", turf: "#3d9140",
-      court_surround: "#4d7f69", court_out: "#3f7a5c", court_in: "#3a6d9c", court_bb: "#c4703e", parking: "#56595d", forest: "#4b5e35", water: "#4f8fb8",
+      court_surround: "#4d7f69", court_out: "#3f7a5c", court_in: "#3a6d9c", tennis_runoff: "#65806a", tennis_hard: "#455b54",
+      court_bb: "#c4703e", parking: "#56595d", forest: "#4b5e35", water: "#4f8fb8",
       turf2: "#4aa047", court_bbg: "#3fae7c", court_key: "#c9654b", brick: "#c48c78",
-      asphalt: "#4a4d51", gravel: "#bba98a", path: "#b99c76", steps: "#d2ccbf", asphalt_red: "#a85a4a", tread: "#8a857b",
+      asphalt: "#4a4d51", concrete: "#afa89a", gravel: "#bba98a", path: "#b99c76", steps: "#d2ccbf", asphalt_red: "#a85a4a", tread: "#8a857b",
       line_white: "#f4f4f4", line_yellow: "#f2c230", line_dark: "#262626", sidewalk: "#9b625b", kerb: "#d3cfc6",
       terrace: "#a9a8a1", sand: "#d3b98e", field: "#6a9a46" };
     const LINE = { road_asphalt: "#4a4d51", road_paving: "#d8d2c5", road_gravel: "#bba98a", road_path: "#b99c76", road_steps: "#d2ccbf",

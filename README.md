@@ -45,7 +45,7 @@ for engineering, legal or safety decisions.
 | Campus boundary | OpenStreetMap relation [11246784](https://www.openstreetmap.org/relation/11246784): 2 parts, 72.0 ha, 4.68 km perimeter |
 | Terrain         | FABDEM V1-2 bare-earth DTM, 1″ (≈24.6 × 30.9 m), EGM2008 → WGS84 ellipsoid, **1:1 scale, no exaggeration**   |
 | Campus relief   | 55.5–112.9 m (57 m) inside the boundary                                                                               |
-| Buildings       | 41 inside the campus, 1,104 including a ~600 m context ring; 23/24 official KHU campus-map buildings matched           |
+| Buildings       | 41 individually modelled inside the campus, 1,104 including a ~600 m context ring; 24/24 official KHU map building entries matched |
 | Coordinates     | WGS84 (EPSG:4326); EPSG:5186 readouts checked against PROJ (max difference 0.002 mm)                                   |
 
 ## Features
@@ -119,11 +119,10 @@ python scripts/check_site.py         # optional: browser checks + screenshots (s
 | Gate frame, amphitheatre terraces, observatory                                                                  | `build_campus_details.py` | `web/data/campus_details.json`                                                   |
 | Validation, provenance, accuracy report                                                                         | `validate.py`             | `web/data/summary.json`, `web/data/accuracy_report.json`, `docs/ACCURACY.md` |
 
-**Adding documented heights:** OSM and the official KHU pages give no heights or floor counts for 40 of
-the 41 campus buildings, so their heights are *estimated* from footprint size. If you obtain documented
-values (for example from the 건축물대장 building register via data.go.kr, or from VWorld building data),
-add them to [`scripts/height_overrides.json`](scripts/height_overrides.json) with their source and
-rerun `python scripts/run_all.py --offline`. They will be labelled *documented*.
+**Adding documented heights:** Most campus building heights are estimated from photographs or footprint
+size. Kyung Hee University publishes the floor counts for Woojungwon and Second Dormitory A and B.
+Documented heights from the 건축물대장 building register or VWorld can be added with their source to
+[`scripts/height_overrides.json`](scripts/height_overrides.json). Rebuild with `python scripts/run_all.py --offline`.
 
 ## Data sources and licences
 
@@ -150,12 +149,16 @@ holds a per-feature record of source, measured/estimated status, date and missin
   max |Δ| of 3.5 m. The 30 m posting underestimates summits, as expected. Copernicus GLO-30 is specified
   at < 4 m absolute vertical error (LE90). This is **not** survey-grade terrain, and features narrower
   than ~30 m (retaining walls, stairs, building platforms) are smoothed out.
+- **Local grades** model the artificial turf, southern sports ground, baseball fields, stadium bowl and
+  entrance aprons using mapped outlines, site references and FABDEM heights. The viewer identifies these
+  adjustments as estimates. The [NGII DEM catalog](https://www.data.go.kr/data/15059920/fileData.do) lists
+  the official Korean product. A campus DEM export was unavailable for this revision.
 - **Vertical datum**: the EGM2008 geoid undulation (N = 23.34–23.79 m) is added explicitly. The UI shows
   orthometric heights.
 - **Horizontal**: DEM registration is PixelIsPoint, handled exactly. OSM footprint accuracy is not
   quantified (typically 1–5 m), but footprints line up visually with aerial imagery in top-down views.
-- **Building heights**: on campus, 0 are documented, 1 is derived from a floor count and 40 are
-  estimated. A DSM−DTM height estimator was tested against 160 documented heights and **rejected**
+- **Building heights**: on campus, the Main Gate height is documented and 40 heights are estimated.
+  A DSM−DTM height estimator was tested against 160 documented heights and **rejected**
   (bias ≈ −45 m).
 - **Stylised content**: façades, colours, the main-gate form and heights, and vegetation positions are
   illustrative. This is stated in the UI and in the report.

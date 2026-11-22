@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-21T13:40:25+00:00",
+  "generated_utc": "2026-11-22T06:03:18+00:00",
   "osm_timestamp": "2026-11-21T10:16:19Z",
   "campus_bbox": {
     "south": 37.2366366,
@@ -26,10 +26,10 @@
     "area_m2": 719972,
     "perimeter_m": 4684,
     "parts": 2,
-    "buildings_in_campus": 41,
-    "buildings_total": 1104,
+    "buildings_in_campus": 42,
+    "buildings_total": 1105,
     "official_building_entries": 24,
-    "official_matched": 23,
+    "official_matched": 24,
     "elevation": {
       "min": 55.45,
       "max": 112.86,
@@ -48,8 +48,7 @@
     },
     "height_status_in_campus": {
       "documented": 1,
-      "estimated": 39,
-      "derived": 1
+      "estimated": 41
     }
   },
   "datasets": [
@@ -145,6 +144,48 @@
       "detail": "Relief inside the boundary: 55.5–112.9 m (57.4 m), from 28746 DTM samples"
     },
     {
+      "name": "Local playing-surface grades",
+      "status": "pass",
+      "detail": "5 playing surfaces use estimated local levels. Original in-field relief is 2.57, 5.47, 6.09, 6.5, 13.8 m. Slope and hillshade use the rendered grades at 2.5 m/pixel.",
+      "values": [
+        {
+          "id": "way/326869014",
+          "source_span_m": 2.57,
+          "modelled_span_m": 0.0,
+          "height_m": 69.72
+        },
+        {
+          "id": "way/455725380",
+          "source_span_m": 5.47,
+          "modelled_span_m": 0.0,
+          "height_m": 69.77
+        },
+        {
+          "id": "way/801815068",
+          "source_span_m": 6.09,
+          "modelled_span_m": 0.0,
+          "height_m": 64.94
+        },
+        {
+          "id": "way/326869011",
+          "source_span_m": 6.5,
+          "modelled_span_m": 0.0,
+          "height_m": 64.57
+        },
+        {
+          "id": "way/801815067",
+          "source_span_m": 13.8,
+          "modelled_span_m": 0.0,
+          "height_m": 68.29
+        }
+      ]
+    },
+    {
+      "name": "Main Gate boulevard crossfall",
+      "status": "pass",
+      "detail": "The modeled carriageway varies by at most 0.07 m across 8.8 m, with 0.53 m of centreline relief in the sampled corridor. Profile estimated from FABDEM and panoramas 5147–5148."
+    },
+    {
       "name": "DTM vs mapped peak elevations (OSM ele)",
       "status": "pass",
       "detail": "n=3; mean Δ -2.24 m, max |Δ| 3.54 m (매미산 156.1 vs 158.5 m, 아람산 146.3 vs 147.1 m, 독침산 105.5 vs 109.0 m). A 30 m DEM is expected to slightly underestimate summits.",
@@ -189,17 +230,17 @@
     {
       "name": "Building footprint overlaps",
       "status": "pass",
-      "detail": "0 overlapping footprint pairs (>1 m²) among 1104 buildings"
+      "detail": "0 overlapping footprint pairs (>1 m²) among 1105 buildings"
     },
     {
       "name": "Buildings on sloping ground",
       "status": "info",
-      "detail": "22 of 41 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats."
+      "detail": "22 of 42 campus buildings span >4 m of DTM relief. Their bases are set to the lowest ground point minus 1.5 m, so the uphill side is embedded in the slope and nothing floats."
     },
     {
       "name": "Campus building heights",
       "status": "warn",
-      "detail": "In campus: 1 documented, 1 derived from floor count, 39 estimated. Whole scene: {'documented': 161, 'estimated': 936, 'derived': 7}. OSM and the official KHU pages do not publish heights for most campus buildings."
+      "detail": "In campus: 1 documented, 0 derived from floor count, 41 estimated. Whole scene: {'documented': 161, 'estimated': 938, 'derived': 6}. OSM and the official KHU pages do not publish heights for most campus buildings."
     },
     {
       "name": "DSM−DTM as height estimator (rejected)",
@@ -209,17 +250,23 @@
     {
       "name": "Official campus-map buildings matched to footprints",
       "status": "pass",
-      "detail": "23/24 official building entries matched to OSM footprints; unmatched: 한방재료가공(경희보감); matched but outside boundary: 0"
+      "detail": "24/24 official building entries matched to OSM footprints; unmatched: none; matched but outside boundary: 0"
     },
     {
       "name": "Campus buildings connected to the path network",
       "status": "pass",
-      "detail": "38/41 campus buildings lie within 30 m of a mapped road/footway (median 5.3 m)"
+      "detail": "39/42 campus buildings lie within 30 m of a mapped road/footway (median 6.5 m)"
+    },
+    {
+      "name": "Campus building model coverage",
+      "status": "pass",
+      "detail": "42/42 campus footprints use individual models. 14 small buildings use approximate aerial-based forms.",
+      "generic_ids": []
     },
     {
       "name": "Stylised Kyung Hee building appearance",
       "status": "info",
-      "detail": "Campus buildings use their real footprints and DTM ground, but their facades (windows per estimated storey, colours) are procedural. Main gate: illustrative model on the footprint frame (59.24 × 5.54 m, opening 11.3 m from footprint vertices); its heights are estimated. Amphitheatre: 41 seating terraces sliced from the real DTM. None of this detail is surveyed."
+      "detail": "Campus buildings use OpenStreetMap footprints and DTM ground. 23 buildings use photo-based façades in addition to the landmark models. Main gate: illustrative model on the footprint frame (59.24 × 5.54 m, opening 11.3 m from footprint vertices); its heights are estimated. Amphitheatre: 41 seating terraces sliced from the real DTM. None of this detail is surveyed."
     },
     {
       "name": "North orientation",
@@ -233,7 +280,7 @@
     }
   ],
   "trees": {
-    "count": 17976,
+    "count": 17954,
     "status": "VISUAL APPROXIMATION - not surveyed tree positions, except the first 'mapped_count' entries, which are OSM-mapped trees (natural=tree / tree_row) at their mapped positions (heights estimated)"
   }
 }

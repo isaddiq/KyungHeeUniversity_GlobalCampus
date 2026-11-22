@@ -1,5 +1,5 @@
 {
-  "count": 2634,
+  "count": 2612,
   "origin_lon": 127.06919763642391,
   "origin_lat": 37.23124673295005,
   "layout": "float32 LE x4 per tree: dlon_deg, dlat_deg (from origin), ground_orthometric_m, tree_height_m",
@@ -7,7 +7,7 @@
   "mapped_count": 50,
   "method": "Jittered 10 m grid. A grid point becomes a tree when it lies in an OSM natural=wood/landuse=forest polygon, or where canopy height (Copernicus DSM - FABDEM DTM) >= 3.5 m; excluded within 5 m of buildings (22 m for canopy-derived points), on roads, pitches, parking and water. Heights are scaled from canopy height and randomised for display.",
   "by_source": {
-    "chm": 2060,
+    "chm": 2038,
     "osm_wood": 15835,
     "osm_mapped_tree": 81
   },

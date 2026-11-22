@@ -103,15 +103,15 @@ async function main() {
   $("#vworldApply").onclick = () => { vworldKey = $("#vworldKey").value.trim(); safeSet("vworldKey", vworldKey); setImagery("vworld"); };
   $("#vworldKey").value = vworldKey;
 
-  // DEM-derived overlays (computed offline from the same DTM, bilinear-resampled to ~6.4 m/px)
+  // Slope and hillshade are calculated on the same local grades as the terrain mesh.
   const ov = dem.meta.overlays;
   const rect = Cesium.Rectangle.fromDegrees(...ov.rectangle_deg);
-  const hillLayer = layersColl.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.hillshade}`, { rectangle: rect, credit: "Hillshade derived from FABDEM V1-2" }));
+  const hillLayer = layersColl.addImageryProvider(await Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.hillshade}`, { rectangle: rect, credit: "Hillshade from FABDEM V1-2 and estimated local grades" }));
   hillLayer.alpha = 0.62;
   window.__hill = hillLayer;
   // the 1.2 MB slope overlay is fetched only when the slope view is first chosen
   let slopeLayer = null, slopeLoading = null;
-  const ensureSlope = () => slopeLoading ??= Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.slope}`, { rectangle: rect, credit: "Slope derived from FABDEM V1-2" })
+  const ensureSlope = () => slopeLoading ??= Cesium.SingleTileImageryProvider.fromUrl(`${DATA}/terrain/${ov.slope}`, { rectangle: rect, credit: "Slope from FABDEM V1-2 and estimated local grades" })
     .then((prov) => { slopeLayer = layersColl.addImageryProvider(prov); slopeLayer.alpha = 0.78; slopeLayer.show = state.viz === "slope"; layersColl.raiseToTop(hillLayer); });
 
   // elevation ramp + contours (GPU material on rendered terrain)
@@ -141,7 +141,7 @@ async function main() {
         <div>Orthometric height (EGM2008), feature area range</div>`;
     } else if (v === "slope") {
       L.innerHTML = `<div class="bar" style="background:linear-gradient(90deg,#1a9850 0%,#91cf60 11%,#d9ef8b 22%,#fee08b 33%,#fc8d59 44%,#d73027 67%,#78003c 100%)"></div>
-        <div class="ticks"><span>0°</span><span>10°</span><span>20°</span><span>30°</span><span>45°</span></div><div>Slope from the 1″ DTM (Horn method). Short, steep features such as retaining walls are not resolved.</div>`;
+        <div class="ticks"><span>0°</span><span>10°</span><span>20°</span><span>30°</span><span>45°</span></div><div>Slope from the 1″ DTM and estimated local grades (Horn method).</div>`;
     } else if (v === "contours") {
       L.innerHTML = `<div>Contours every ${$("#contourSel").value} m; every 5th line is thicker. They are computed per pixel on the rendered DTM surface (orthometric).</div>`;
     } else L.innerHTML = "";
@@ -226,7 +226,8 @@ async function main() {
   // ---------------- layer toggles ----------------
   const layerMap = {
     buildings: () => layers.buildingPrimitives, labels: () => [layers.labels], roads: () => layers.roadPrimitives,
-    landcover: () => layers.landcoverPrimitives, trees: () => [layers.treePrimitive], boundary: () => [layers.boundaryPrimitive],
+    landcover: () => layers.landcoverPrimitives, trees: () => [layers.treePrimitive], cherries: () => layers.cherryPrimitives,
+    boundary: () => [layers.boundaryPrimitive],
     pois: () => [layers.pois],
   };
   function setLayer(name, on) {
@@ -257,7 +258,7 @@ async function main() {
   $("#btnElevation").onclick = () => applyViz(state.viz === "realistic" ? "elevation" : "realistic");
   $("#btnTerrainOnly").onclick = () => {
     state.terrainOnly = !state.terrainOnly;
-    for (const n of ["buildings", "labels", "trees"]) setLayer(n, !state.terrainOnly);
+    for (const n of ["buildings", "labels", "trees", "cherries"]) setLayer(n, !state.terrainOnly);
     $("#btnTerrainOnly").classList.toggle("on", state.terrainOnly);
   };
   $("#btnFullscreen").onclick = () => {
@@ -280,7 +281,7 @@ async function main() {
     ["Buildings", `${cs.buildings_in_campus} university buildings`],
     ["Official map", `${cs.official_matched}/${cs.official_building_entries} buildings matched`],
     ["Elevation", `${cs.elevation.min.toFixed(0)}–${cs.elevation.max.toFixed(0)} m (relief ${cs.elevation.relief.toFixed(0)} m)`],
-    ["Terrain", `FABDEM V1-2 · 1″ (${dem.meta.spacing_m.x.toFixed(1)} × ${dem.meta.spacing_m.y.toFixed(1)} m)`],
+    ["Terrain", `FABDEM V1-2 · 1″ (${dem.meta.spacing_m.x.toFixed(1)} × ${dem.meta.spacing_m.y.toFixed(1)} m) with estimated local grades`],
     ["OSM data", esc(summary.osm_timestamp?.slice(0, 10))],
   ], true);
 
@@ -332,7 +333,10 @@ async function main() {
       <div class="sub">${p.name_en ? esc(p.name_en) + " · " : ""}${p.in_campus ? "Global Campus" : "Outside campus boundary (context)"}</div>
       ${kv([
         ["Official map no.", p.official_no ? `${p.official_no} · ${esc(p.official_name_ko)}` : "<span class='dim'>not matched</span>"],
-        ["Identifier", `<a href="${osmUrl}" target="_blank" rel="noopener">OSM ${esc(p.id)}</a>`],
+        ["Identifier", p.construction ? `${esc(p.id)} <span class="dim">(not in OSM yet)</span>`
+          : `<a href="${osmUrl}" target="_blank" rel="noopener">OSM ${esc(p.id)}</a>`],
+        ...(p.construction ? [["Status", `${esc(p.construction.status)} <span class="badge estimated">planned</span> · groundbreaking ${esc(p.construction.groundbreaking)}, completion planned ${esc(p.construction.completion_planned)}`],
+          ["Sources", p.construction.sources.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener">news ${i + 1}</a>`).join(" · ")]] : []),
         ["Type", esc(p.building_type)],
       ], true)}
       <div class="sec">Geometry</div>
@@ -342,7 +346,7 @@ async function main() {
         ["Footprint area", `${p.footprint_area_m2.toLocaleString(undefined, { maximumFractionDigits: 0 })} m²`],
         ["Height", `${p.height_m.toFixed(1)} m <span class="badge ${conf}">${p.height_status}</span>`],
         ["Floors", p.levels ? (p.levels_status === "counted from photographs" ? `${p.levels} <span class="badge estimated">counted from photos</span>` : `${p.levels} <span class="badge documented">${esc(p.levels_source || "OSM")}</span>`) : "<span class='dim'>unknown</span>"],
-        ["Roof", esc(p.roof_shape)],
+        ["Roof", esc(rec.roofShape || p.roof_shape)],
         ...(rec.detailed ? [["Appearance", `${esc(rec.appearance || "stylised facade")} <span class="badge estimated">stylised</span>`]] : []),
         ...(rec.modelHeight ? [["Model height", `${rec.modelHeight.toFixed(1)} m <span class="badge estimated">illustrative</span>`]] : []),
       ], true)}
@@ -358,7 +362,7 @@ async function main() {
         ["Footprint", esc(p.footprint_source)],
         ["Height source", esc(p.height_source)],
         ["Confidence", esc(p.height_confidence)],
-        ["Ground", "FABDEM V1-2 bilinear at vertices and interior samples"],
+        ["Ground", p.ground_adjusted ? "FABDEM V1-2 with an estimated site grade" : "FABDEM V1-2 sampled across the footprint"],
       ], true)}
       <div class="actions">
         <button id="dFocus">Focus</button><button id="dWalk">Walk here</button>
@@ -384,10 +388,12 @@ async function main() {
     const c = Cesium.Cartographic.fromCartesian(cart);
     const lon = Cesium.Math.toDegrees(c.longitude), lat = Cesium.Math.toDegrees(c.latitude);
     const H = dem.heightOrtho(lon, lat), N = dem.geoidN(lon, lat), tm = toEpsg5186(lon, lat);
+    const adjusted = Math.abs(H - dem.heightOrtho(lon, lat, false)) > 0.01;
     showGeneric("Terrain point", [
       ["WGS84", fmtLonLat(lon, lat)], ["EPSG:5186", `E ${tm.x.toFixed(2)} · N ${tm.y.toFixed(2)}`],
-      ["DTM height", `${H.toFixed(2)} m (EGM2008)`], ["Ellipsoidal", `${(H + N).toFixed(2)} m (WGS84)`],
-      ["Source", dem.contains(lon, lat) ? "FABDEM V1-2, bilinear (±2–5 m typical)" : "Outside the DEM window (faded)"],
+      ["Ground height", `${H.toFixed(2)} m (EGM2008)`], ["Ellipsoidal", `${(H + N).toFixed(2)} m (WGS84)`],
+      ["Source", adjusted ? "Estimated local grade from FABDEM V1-2 and site references" :
+        dem.contains(lon, lat) ? "FABDEM V1-2, bilinear (±2–5 m typical)" : "Outside the DEM window (faded)"],
     ]);
   }
   $("#closeRight").onclick = () => { $("#right").classList.add("hidden"); layers.highlight(null); renderList(); history.replaceState(null, "", location.pathname); };
@@ -408,6 +414,13 @@ async function main() {
     }
     if (id?.kind === "ground") {
       const p = id.props;
+      const photoSurface = {
+        "main-gate-paving": "Main gate paving", "main-gate-street": "Deogyeong-daero",
+        "woojungwon-foreign-languages-walk": "Woojungwon to Foreign Languages walk",
+      }[p.id];
+      if (photoSurface) {
+        return showGeneric(photoSurface, [["Source", "Estimated outline from campus photos and aerial imagery"]]);
+      }
       return showGeneric(p.kind.replace("_", " "), [["OSM", p.id ? `<a href="https://www.openstreetmap.org/${p.id}" target="_blank" rel="noopener">${p.id}</a>` : "–"],
         ...(p.width ? [["Width", `${p.width} m`]] : []), ["Note", "surface on OSM geometry; markings are standard layouts fitted to the outline <span class='badge estimated'>illustrative</span>"]]);
     }

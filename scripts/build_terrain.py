@@ -100,17 +100,12 @@ def slope_colour(deg):
     return out.astype(np.uint8)
 
 
-def write_overlays(dtm, west, south, east, north, dx, dy, out_dir, cond=None):
-    """Slope + hillshade overlays (bilinear upsample, ~12 m/pixel; no smoothing of the source). `cond` = optional
-    terrain_mods.Conditioner, so the overlays show the carved stadium / levelled sites like the 3D surface."""
+def write_overlays(dtm, west, south, east, north, dx, dy, out_dir, width=1024):
+    """Slope and hillshade for the supplied height grid, with bilinear resampling as needed."""
     rows, cols = dtm.shape
-    up_w = 1024
+    up_w = width
     up_h = int(round(up_w * (rows - 1) * dy / ((cols - 1) * dx)))
     zu = bilinear_upsample(dtm, up_h, up_w)
-    if cond is not None:
-        lons = np.linspace(west, east, up_w)[None, :].repeat(up_h, 0)
-        lats = np.linspace(north, south, up_h)[:, None].repeat(up_w, 1)
-        zu = cond(lons, lats, zu)
     pdx = (cols - 1) * dx / (up_w - 1)
     pdy = (rows - 1) * dy / (up_h - 1)
     gx, gy = slope_aspect(zu, pdx, pdy)
@@ -143,7 +138,7 @@ def write_overlays(dtm, west, south, east, north, dx, dy, out_dir, cond=None):
 
     return {"rectangle_deg": overlay_rect, "width": up_w, "height": up_h, "pixel_m": [round(pdx, 2), round(pdy, 2)],
             "slope": "slope.jpg", "hillshade": "hillshade.png", "slope_legend_deg": [0, 5, 10, 15, 20, 30, 45],
-            "conditioned": cond is not None}
+            "conditioned": False}
 
 
 def main():

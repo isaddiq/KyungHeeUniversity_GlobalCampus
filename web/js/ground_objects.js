@@ -1,6 +1,4 @@
-// 3D ground details on OSM outlines (ground.json "objects"): fountains, box-hedge borders, planter bowls.
-// Positions/outlines: OpenStreetMap. Heights, rim widths, hedges and centrepieces: estimated from the
-// user's reference photographs (see docs/MODEL_PROGRESS.md) - illustrative, not surveyed.
+// 3D ground details use mapped outlines where available and estimated geometry from campus photographs.
 import { Mesh, Frame, Local, STY, hex, createFacadeAppearance } from "./mesh.js";
 import { figure } from "./khu_landmarks.js";
 const Cesium = window.Cesium;
@@ -114,7 +112,7 @@ function net(mesh, o, dem) {
   const ax = [(B[0] - A[0]) / L, (B[1] - A[1]) / L];
   const G = new Local(mesh, f, ax, A);
   const zAt = (s) => { const [lo, la] = f.lonlat(A[0] + ax[0] * s, A[1] + ax[1] * s); return dem.heightEllipsoid(lo, la); };
-  const n = Math.max(1, Math.round(L / 4));
+  const n = Math.max(1, Math.round(L / (o.post_spacing ?? 4)));
   const POST = hex("#5b6a62"), NETC = hex("#2f6e4e");
   for (let k = 0; k < n; k++) {
     const s0 = k * L / n, s1 = (k + 1) * L / n, z0 = Math.min(zAt(s0), zAt(s1)) - 1.0, z1 = Math.max(zAt(s0), zAt(s1)) + o.h;
@@ -234,6 +232,122 @@ function goal(mesh, o, dem) {
   G.cylBetween([-3.66, 0, 2.44], [3.66, 0, 2.44], 0.06, W, STY.STATUE, 8);
 }
 
+function pergola(mesh, o, dem) {
+  const f = new Frame(...o.p, dem.heightEllipsoid(...o.p));
+  const G = new Local(mesh, f, o.axis);
+  const a = o.length / 2, b = o.width / 2, h = 2.68;
+  const concrete = o.open_roof ? WHITE : hex("#c8c4b6");
+  const box = (s0, s1, t0, t1, z0, z1, col = concrete) => G.box({s0, s1, t0, t1, z0, z1, col, sty: STY.STATUE});
+  if (o.open_roof) {
+    for (let t = -b + 0.22; t < b; t += (2 * b - 0.40) / 4) {
+      G.profile([[-a + 0.25, -0.04], [-a + 0.51, -0.04], [-a - 0.14, h], [-a - 0.40, h]], t - 0.12, t + 0.12, concrete);
+      G.profile([[a - 0.32, -0.04], [a - 0.06, -0.04], [a - 0.23, h], [a - 0.49, h]], t - 0.12, t + 0.12, concrete);
+      box(-a - 0.52, a + 0.23, t - 0.13, t + 0.13, h - 0.07, h + 0.16);
+    }
+    for (const s of [-a + 0.42, 0, a - 0.48]) box(s - 0.06, s + 0.06, -b, b, h + 0.04, h + 0.15);
+  } else {
+    for (const s of [-a + 0.62, a - 0.62]) for (const t of [-b + 0.32, b - 0.32]) {
+      box(s - 0.13, s + 0.13, t - 0.13, t + 0.13, -0.12, h);
+    }
+    box(-a, a, -b, b, h - 0.17, h + 0.05, hex("#736e62"));
+  }
+  for (const s of [-a + 0.6, a - 0.6]) {
+    box(s - 0.26, s + 0.26, -b + 0.34, b - 0.34, 0.43, 0.55, hex("#806950"));
+    for (const t of [-b + 0.49, b - 0.49]) box(s - 0.17, s + 0.17, t - 0.10, t + 0.10, 0.02, 0.44);
+  }
+}
+
+function accessStair(mesh, o, dem) {
+  const f = new Frame(...o.c[0]);
+  const points = o.c.map((p) => f.local(...p));
+  const lengths = points.slice(1).map(([x, y], i) => Math.hypot(x - points[i][0], y - points[i][1]));
+  const total = lengths.reduce((a, b) => a + b, 0);
+  const base = dem.heightEllipsoid(...o.c[0]) + 0.12;
+  const rise = dem.heightEllipsoid(...o.c.at(-1)) + 0.04 - base;
+  const stone = hex("#c1bfb5"), tread = hex("#dedacf"), rail = hex("#bcbbae");
+  const half = o.w / 2;
+  let station = 0;
+  for (let i = 0; i < lengths.length; i++) {
+    const [x, y] = points[i], [ex, ey] = points[i + 1], len = lengths[i];
+    const G = new Local(mesh, f, [(ex - x) / len, (ey - y) / len], [x, y]);
+    const lower = base + rise * station / total, upper = base + rise * (station + len) / total;
+    const margin = i === lengths.length - 1 ? 0.35 : 0.95;
+    const count = Math.max(1, Math.round((upper - lower) / 0.16));
+    const run = (len - margin) / count;
+    for (let j = 0; j < count; j++) {
+      const z = lower + (upper - lower) * (j + 1) / count;
+      const s0 = j * run;
+      G.box({s0, s1: s0 + run, t0: -half, t1: half, z0: z - 0.9, z1: z, col: tread, sty: STY.STATUE});
+    }
+    G.box({s0: len - margin, s1: len + (i < lengths.length - 1 ? 0.7 : 0), t0: -half, t1: half,
+      z0: upper - 1.0, z1: upper, col: stone, sty: STY.STATUE});
+    for (const t of [-half + 0.06, half - 0.06]) {
+      for (let s = 0.25; s < len - 0.15; s += 1.45) {
+        const z = lower + (upper - lower) * s / len;
+        G.cyl({s, t, z0: z - 0.1, z1: z + 0.93, r0: 0.033, seg: 6, col: rail, sty: STY.STATUE});
+      }
+      G.cylBetween([0, t, lower + 0.93], [len, t, upper + 0.93], 0.045, rail, STY.STATUE, 6);
+    }
+    station += len;
+  }
+}
+
+/** White pavilion on a raised deck at the east end of the turf plaza (Engineering Annex renderings, 2026).
+ *  Local frame: s along `axis` (south), t to the east; the anchor is the deck's north-east corner. */
+function turfPavilion(mesh, o, dem) {
+  const f = new Frame(...o.p, dem.heightEllipsoid(...o.p));
+  const G = new Local(mesh, f, o.axis);
+  const [S, T, H] = o.deck;
+  const white = hex("#f1f0eb"), deckTop = hex("#d8d6cf"), stepC = hex("#ecebe5"), leaf = hex("#5f8a3e");
+  const box = (s0, s1, t0, t1, z0, z1, col = white, sty = STY.STATUE) => G.box({ s0, s1, t0, t1, z0, z1, col, sty });
+  box(0, S, -T, 0, -0.8, H - 0.06);                                     // deck
+  box(0.15, S - 0.15, -T + 0.15, -0.15, H - 0.06, H, deckTop);
+  const n = 6, run = 0.75;                                              // steps down to the west
+  for (let k = 0; k < n; k++) box(0, S, -T - run * (k + 1), -T - run * k, -0.8, H * (n - k - 1) / n + 0.02, stepC);
+  const roofZ = H + 3.2;                                                // flat-roofed pavilion on the east side
+  box(1.0, 12.0, -1.0, -0.4, H, roofZ);                                 // solid back wall
+  box(1.0, 1.5, -5.6, -0.4, H, roofZ);                                  // north end wall
+  for (const s of [6.4, 11.6]) G.cyl({ s, t: -5.5, z0: H, z1: roofZ, r0: 0.14, seg: 10, col: white, sty: STY.STATUE });
+  box(0.5, 12.5, -6.1, 0.1, roofZ, roofZ + 0.38);
+  for (const s of [2.4, 6.0, 9.6]) {                                    // planters and small trees on the deck
+    box(s - 0.8, s + 0.8, -8.2, -7.0, H, H + 0.55);
+    G.sphere({ s, t: -7.6, z: H + 0.75, r: 0.75, col: leaf, sty: STY.FOLIAGE, seg: 8, sz: 0.6, jit: 0.2 });
+  }
+  for (const s of [4.2, 11.5]) {
+    G.cyl({ s, t: -10.2, z0: H, z1: H + 2.6, r0: 0.12, r1: 0.08, col: hex("#6a5444"), sty: STY.STATUE, seg: 7 });
+    G.sphere({ s, t: -10.2, z: H + 3.1, r: 1.25, col: leaf, sty: STY.FOLIAGE, seg: 9, sz: 0.75, jit: 0.15 });
+  }
+  const frameTop = H + 2.9;                                             // pergola frames over the steps
+  for (const t of [-T - 0.5, -T - 2.4, -T - 4.3]) {
+    for (const s of [0.4, S / 2, S - 0.4]) box(s - 0.13, s + 0.13, t - 0.13, t + 0.13, -0.3, frameTop);
+    box(0.25, S - 0.25, t - 0.14, t + 0.14, frameTop - 0.25, frameTop);
+  }
+  for (const s of [0.4, S - 0.4]) box(s - 0.12, s + 0.12, -T - 4.45, -T + 0.2, frameTop - 0.22, frameTop - 0.02);
+  for (let t = -1.5; t > -T - 12; t -= 6) {                            // pillars and hedges along the tennis fence
+    box(S + 2.2, S + 2.7, t - 0.5, t + 0.5, -0.5, 3.3, hex("#e6e3da"), STY.RELIEF);
+    if (t - 3 > -T - 12) box(S + 2.25, S + 2.65, t - 5.4, t - 0.6, -0.4, 0.85, hex("#3c6a2c"), STY.FOLIAGE);
+  }
+}
+
+function cherry(mesh, o, dem) {
+  const f = new Frame(...o.p, dem.heightEllipsoid(...o.p) - 0.2);
+  const G = new Local(mesh, f, [1, 0]);
+  const bark = hex("#685049"), height = o.h, spread = height * 0.36;
+  const flowers = ["#f7d2dd", "#f5e6ed", "#ecc1d2", "#f8edf0"].map(hex);
+  G.cyl({s: 0, t: 0, z0: 0, z1: height * 0.64, r0: height * 0.033, r1: 0.08, col: bark, sty: STY.STATUE, seg: 7});
+  for (let i = 0; i < 6; i++) {
+    const a = o.rot + i * 2.39996;
+    const s = Math.cos(a) * spread * (0.64 + 0.19 * (i % 3));
+    const t = Math.sin(a) * spread * (0.64 + 0.19 * (i % 3));
+    const z = height * (0.61 + 0.055 * (i % 4));
+    G.cylBetween([0, 0, height * 0.28], [s * 0.92, t * 0.92, z], 0.08, bark, STY.STATUE, 5);
+    G.sphere({s, t, z, r: spread * 0.57, col: flowers[i % flowers.length], sty: STY.FOLIAGE, seg: 7, sz: 0.65, jit: 0.21, ph: a});
+    G.sphere({s: s * 1.15, t: t * 1.15, z: z + spread * 0.31, r: spread * 0.40,
+      col: flowers[(i + 1) % flowers.length], sty: STY.FOLIAGE, seg: 7, sz: 0.75, jit: 0.19, ph: a + 1});
+  }
+  G.sphere({s: 0.15, t: -0.18, z: height * 0.83, r: spread * 0.60, col: flowers[1], sty: STY.FOLIAGE, seg: 8, sz: 0.76, jit: 0.19});
+}
+
 export function buildGroundObjects(viewer, dem, objects, mobile) {
   const mesh = new Mesh(), water = [];
   for (const o of objects ?? []) {
@@ -246,6 +360,10 @@ export function buildGroundObjects(viewer, dem, objects, mobile) {
       else if (o.k === "kerb" && !mobile) kerb(mesh, o, dem);
       else if (o.k === "pagoda") pagoda(mesh, o, dem);
       else if (o.k === "goal") goal(mesh, o, dem);
+      else if (o.k === "pergola") pergola(mesh, o, dem);
+      else if (o.k === "stair") accessStair(mesh, o, dem);
+      else if (o.k === "turf_pavilion") turfPavilion(mesh, o, dem);
+      else if (o.k === "cherry") cherry(mesh, o, dem);
     } catch (e) { console.warn("ground object skipped", o.id, e.message); }
   }
   const prims = [];
