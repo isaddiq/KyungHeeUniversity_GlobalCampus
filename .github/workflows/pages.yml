@@ -15,17 +15,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: pages
+        uses: actions/configure-pages@v6
+      # The site is static. The baked geometry in web/data/baked is generated offline
+      # (python scripts/bake_models.py) and committed, so CI only checks that the bake matches its inputs
+      # and publishes web/ as it is. There is no server and no runtime build.
+      - name: Check baked assets are current
+        run: python3 scripts/bake_models.py --check
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      # The site is fully static and pre-built: web/ is published as-is (no build step, no server).
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: web
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

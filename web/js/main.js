@@ -8,6 +8,8 @@ const Cesium = window.Cesium;
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const setLoading = (t) => { $("#loadingText").textContent = t; };
+// stage marks for scripts/bench.py (performance.getEntriesByType("mark"))
+const mark = (n) => { try { performance.mark(n); } catch { /* old browsers */ } };
 const DATA = "data";
 // Light mode (default) opens fast: no shadows or MSAA, coarser terrain tiles, no vegetation until it is
 // switched on. "Full detail" in the toolbar stores the choice and reloads.
@@ -17,6 +19,7 @@ async function main() {
   if (!window.Cesium) throw new Error("CesiumJS failed to load from the CDN.");
   // No Cesium ion assets are used. Terrain and features are served from this repository.
   Cesium.Ion.defaultAccessToken = "";
+  mark("khu:start");
 
   setLoading("Loading FABDEM terrain grid…");
   const [dem, summary, details] = await Promise.all([loadDem(`${DATA}/terrain`), loadJSON(`${DATA}/summary.json`), loadJSON(`${DATA}/campus_details.json`)]);
@@ -33,6 +36,8 @@ async function main() {
     contextOptions: { webgl: { alpha: true } },
   });
   window.viewer = viewer; // handy for debugging / automated checks
+  mark("khu:viewer");
+  { const once = () => { mark("khu:first-frame"); viewer.scene.postRender.removeEventListener(once); }; viewer.scene.postRender.addEventListener(once); }
   const scene = viewer.scene, globe = scene.globe;
   globe.depthTestAgainstTerrain = true;
   globe.baseColor = Cesium.Color.fromCssColorString("#5b6157");
@@ -172,6 +177,7 @@ async function main() {
   setLoading("Loading buildings, roads and landcover…");
   const layers = new CampusLayers(viewer, dem, { mobile: isMobile });
   const { buildings } = await layers.load(DATA, setLoading);
+  mark("khu:layers");
   window.__layers = layers;
   setImagery(state.imagery);
 
@@ -484,6 +490,7 @@ async function main() {
   if (m) selectBuilding(decodeURIComponent(m[1]), true);
   $("#loading").classList.add("done");
   document.body.dataset.ready = "1";
+  mark("khu:ready");
 }
 
 const isTouch = matchMedia("(pointer: coarse)").matches;
