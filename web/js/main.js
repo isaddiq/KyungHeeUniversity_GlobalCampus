@@ -207,8 +207,8 @@ async function main() {
   cam.setMode("orbit");
   const h = CONFIG.home;
   viewer.camera.flyToBoundingSphere(cam.homeSphere, { offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(h.heading), Cesium.Math.toRadians(h.pitch), h.range), duration: 0 });
-  // default view: the main gate, seen from above the street side, looking through the arch into the campus
-  // ("Whole campus" in the toolbar still flies to the overview above)
+  // default view: the main gate seen from 45° off its axis and from higher up, so the artificial-turf
+  // field behind it is in frame too ("Whole campus" in the toolbar still flies to the overview above)
   const g = layers.details?.gate;
   if (g && !location.hash) {
     const [glon, glat] = g.center, [ax, ay] = g.axis_en;
@@ -216,10 +216,18 @@ async function main() {
     let nx = -ay, ny = ax;                                         // footprint normal; point it away from the campus
     const cc = CONFIG.campusCenter ?? { lon: 127.0818, lat: 37.2427 };
     if (nx * (cc.lon - glon) * mx + ny * (cc.lat - glat) * my > 0) { nx = -nx; ny = -ny; }
-    const d = 78, lon = glon + nx * d / mx, lat = glat + ny * d / my;
+    // look direction = inward normal turned 45° towards the turf field (south-east of the gate)
+    const turf = { lon: 127.0793, lat: 37.2465 };
+    const tE = (turf.lon - glon) * mx, tN = (turf.lat - glat) * my;
+    const rot = (a) => [(-nx) * Math.cos(a) - (-ny) * Math.sin(a), (-nx) * Math.sin(a) + (-ny) * Math.cos(a)];
+    let [dx, dy] = rot(Math.PI / 4);
+    const [ex, ey] = rot(-Math.PI / 4);
+    if (ex * tE + ey * tN > dx * tE + dy * tN) [dx, dy] = [ex, ey];
+    const back = 105, up = 75;                                     // metres behind the gate along the view line / above ground
+    const lon = glon - dx * back / mx, lat = glat - dy * back / my;
     viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(lon, lat, dem.heightEllipsoid(lon, lat) + 30),
-      orientation: { heading: Math.atan2(-nx, -ny), pitch: Cesium.Math.toRadians(-9), roll: 0 },
+      destination: Cesium.Cartesian3.fromDegrees(lon, lat, dem.heightEllipsoid(lon, lat) + up),
+      orientation: { heading: Math.atan2(dx, dy), pitch: Cesium.Math.toRadians(-24), roll: 0 },
     });
   }
 

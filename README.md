@@ -1,8 +1,6 @@
-![1795268841490](image/README/1795268841490.png)
+![1795333791714](data/1795333791714.png)
 
 # Kyung Hee University Global Campus: geospatial 3D digital twin
-
-
 
 An interactive, geographically referenced 3D reconstruction of **Kyung Hee University Global Campus**
 (경희대학교 국제캠퍼스, 1732 Deogyeong-daero, Giheung-gu, Yongin-si). It is a static website built on
@@ -40,13 +38,13 @@ sources apply; see [Data sources and licences](#data-sources-and-licences). This
 reconstruction, not an official Kyung Hee University product, and it is not survey-grade. Do not use it
 for engineering, legal or safety decisions.
 
-|                 |                                                                                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Campus boundary | OpenStreetMap relation [11246784](https://www.openstreetmap.org/relation/11246784): 2 parts, 72.0 ha, 4.68 km perimeter |
-| Terrain         | FABDEM V1-2 bare-earth DTM, 1″ (≈24.6 × 30.9 m), EGM2008 → WGS84 ellipsoid, **1:1 scale, no exaggeration**   |
-| Campus relief   | 55.5–112.9 m (57 m) inside the boundary                                                                               |
+|                 |                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Campus boundary | OpenStreetMap relation [11246784](https://www.openstreetmap.org/relation/11246784): 2 parts, 72.0 ha, 4.68 km perimeter             |
+| Terrain         | FABDEM V1-2 bare-earth DTM, 1″ (≈24.6 × 30.9 m), EGM2008 → WGS84 ellipsoid, **1:1 scale, no exaggeration**               |
+| Campus relief   | 55.5–112.9 m (57 m) inside the boundary                                                                                           |
 | Buildings       | 41 individually modelled inside the campus, 1,104 including a ~600 m context ring; 24/24 official KHU map building entries matched |
-| Coordinates     | WGS84 (EPSG:4326); EPSG:5186 readouts checked against PROJ (max difference 0.002 mm)                                   |
+| Coordinates     | WGS84 (EPSG:4326); EPSG:5186 readouts checked against PROJ (max difference 0.002 mm)                                               |
 
 ## Features
 
