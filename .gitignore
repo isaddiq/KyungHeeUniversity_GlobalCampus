@@ -11,3 +11,14 @@ kyunghee pictures/
 
 # temporary before/after renders made while modelling from the reference photos (not published)
 docs/screenshots/places/
+
+# Chromium / Playwright logs written by the bake and benchmark scripts
+debug.log
+*.log
+
+# local editor / agent settings
+.vscode/
+.claude/settings.local.json
+
+# benchmark scratch output (the summary is in docs/PERFORMANCE.md; pass --out docs/perf/<name>.json to keep one)
+docs/perf/*.tmp.json

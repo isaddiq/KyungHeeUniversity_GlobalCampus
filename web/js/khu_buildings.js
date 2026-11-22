@@ -3,6 +3,7 @@
 // Appearance: STYLISED procedural facades coloured by building role. Landmarks (main gate, library,
 // obelisks, fountain, amphitheatre, observatory) get dedicated models - see khu_landmarks.js.
 import { Mesh, Frame, STY, hex, createFacadeAppearance } from "./mesh.js";
+import { geometryFromItems } from "./baked.js";
 import { buildGateModel, buildLibraryModel, buildObelisk, buildTheatre, addPondRocks, buildPeaceHall, buildArtDesign, buildPhotoModel } from "./khu_landmarks.js";
 const Cesium = window.Cesium;
 
@@ -21,6 +22,15 @@ export function khuStyle(p) {
   if (/외국어|국제|학생회관|멀티미디어|글로벌|생명/.test(n)) return S(0, "#ddd5c6", "#78817d", 3.8, 3.6, "granite");
   if (p.footprint_area_m2 < 120) return S(4, "#cfc7b8", "#7f7a72", 3.5, 3.0, "small structure");
   return S(0, "#d8d0c1", "#7d8580", 3.8, 3.6, "granite");
+}
+
+/** Per-building record (ellipsoidal heights). Shared with the offline baker (tools/bake.js); layers.js uses it for every building. */
+export function buildingRec(f, dem) {
+  const p = f.properties;
+  const [clon, clat] = p.centroid;
+  const N = dem.geoidN(clon, clat);
+  return { props: p, feature: f, parts: [], N, base: p.ground_min_m - 1.5 + N, // embed slightly: no floating on sloped sites
+    top: p.ground_min_m + p.height_m + N, positions: [], detailed: p.in_campus };
 }
 
 function ringsOf(geom) {
@@ -71,113 +81,132 @@ function addExtrusion(mesh, frame, polys, { bottom, top, roof, datum, style, gro
 
 const noTint = () => Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1, 1, 1, 0));
 
-export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
+/** Building fields that the models set (also stored with the baked geometry). */
+export function applyPatch(rec, patch) {
+  if (!patch) return;
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === "name_en") rec.props.name_en ??= v;
+    else rec[k] = v;
+  }
+}
+
+/**
+ * Procedural campus models as items: [{ key, name, group, pick, patch, mesh }]. This is what
+ * scripts/bake_models.py stores in web/data/baked; the site only runs it with ?procedural=1 or when the
+ * baked files are missing. Patches are applied to the records as a side effect (same as the baked path).
+ */
+export function buildKhuItems(dem, campusRecs, details) {
   const center = campusRecs[0]?.props.centroid ?? [127.0818, 37.2427];
   const frame = new Frame(center[0], center[1], 0);
-  const instances = [];
+  const items = [];
   const groundAt = (lo, la) => dem.heightEllipsoid(lo, la);
   const photoModels = details?.photo_buildings ?? {};
   const special = new Set([details?.gate?.id, details?.amphitheatre?.id, details?.library?.id, details?.peacehall?.id, details?.artdesign?.id, ...Object.keys(photoModels)].filter(Boolean));
   const byId = new Map(campusRecs.map((r) => [r.props.id, r]));
+  const nameOf = (rec) => [rec.props.official_name_ko || rec.props.name_ko, rec.props.name_en].filter(Boolean).join(" · ") || rec.props.id;
+  const push = (rec, mesh, patch) => {
+    applyPatch(rec, patch);
+    items.push({ key: rec.props.id, name: nameOf(rec), group: "buildings", pick: { bid: rec.props.id, part: 0, kind: "building" }, patch, mesh });
+  };
   for (const rec of campusRecs) {
     const p = rec.props;
     if (special.has(p.id)) continue;
     const style = khuStyle(p);
-    rec.appearance = style.label;
     const mesh = new Mesh();
     addExtrusion(mesh, frame, ringsOf(rec.feature.geometry), {
       bottom: rec.base, top: rec.top, roof: rec.top - 0.9, datum: p.ground_min_m + rec.N, style, groundAt,
     });
-    const id = { bid: p.id, part: 0, kind: "building" };
-    rec.parts = [id];
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    push(rec, mesh, { appearance: style.label });
   }
   // main gate
   if (details?.gate && byId.has(details.gate.id)) {
     const rec = byId.get(details.gate.id);
     const { mesh, topEll } = buildGateModel(details.gate, dem);
-    const id = { bid: rec.props.id, part: 0, kind: "building" };
-    rec.parts = [id];
-    rec.appearance = "triumphal arch with a coffered vault and carved Corinthian capitals; rooftop figures with a staff, book, scroll and dove; feathered spandrel figures and bronze medallions; pavilion reliefs, armillary spheres and eagles above the tablets";
-    rec.modelHeight = 22.5;
-    rec.top = topEll;
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    push(rec, mesh, {
+      appearance: "triumphal arch with a coffered vault and carved Corinthian capitals; rooftop figures with a staff, book, scroll and dove; feathered spandrel figures and bronze medallions; pavilion reliefs, armillary spheres and eagles above the tablets",
+      modelHeight: 22.5, top: topEll,
+    });
   }
   // central library
   if (details?.library && byId.has(details.library.id)) {
     const rec = byId.get(details.library.id);
     const { mesh, topEll } = buildLibraryModel(details.library, rec, dem);
-    const id = { bid: rec.props.id, part: 0, kind: "building" };
-    rec.parts = [id];
-    rec.appearance = "classical library modelled from photographs: 17-column giant colonnade facing 사색의 광장, arched end pavilions, grand stairs, roof penthouse";
-    rec.top = topEll;
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    push(rec, mesh, { appearance: "classical library modelled from photographs: 17-column giant colonnade facing 사색의 광장, arched end pavilions, grand stairs, roof penthouse", top: topEll });
   }
   // 평화노천극장: Greek-style theatre + rock-lined pond with jets
-  const pools = [...(details?.plaza?.fountains ?? []).map((p) => ({ ...p, kind: "fountain" }))];
   if (details?.theatre && byId.has(details.theatre.id)) {
     const rec = byId.get(details.theatre.id);
     const { mesh, topEll } = buildTheatre(details.theatre, dem);
     const pd = details.theatre.pond;
-    if (pd.coords.length) {
-      addPondRocks(mesh, pd.coords, pd.ground_mean_m, dem);
-      pools.push({ id: pd.id, coords: pd.coords, ground_min_m: pd.ground_min_m, ground_mean_m: pd.ground_mean_m, kind: "pond" });
-    }
-    const id = { bid: rec.props.id, part: 0, kind: "building" };
-    rec.parts = [id];
-    rec.appearance = "Greek-style theatre modelled from photographs: semicircular cavea with radial stair aisles, cross-aisle and balustrades, raised half-round stage, curved Corinthian colonnade with relief pavilions; seats follow the real DTM; stage axis towards the OSM pond";
-    rec.top = topEll;
-    rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    if (pd.coords.length) addPondRocks(mesh, pd.coords, pd.ground_mean_m, dem);
+    push(rec, mesh, {
+      appearance: "Greek-style theatre modelled from photographs: semicircular cavea with radial stair aisles, cross-aisle and balustrades, raised half-round stage, curved Corinthian colonnade with relief pavilions; seats follow the real DTM; stage axis towards the OSM pond",
+      top: topEll, modelHeight: topEll - (rec.props.ground_min_m + rec.N),
+    });
   }
   // 선승관 (photographed as "Peace Hall")
   if (details?.peacehall && byId.has(details.peacehall.id)) {
     const rec = byId.get(details.peacehall.id);
     const { mesh, topEll } = buildPeaceHall(details.peacehall, rec, dem);
-    const id = { bid: rec.props.id, part: 0, kind: "building" };
-    rec.parts = [id];
-    rec.appearance = "brick arcade hall with a shallow ribbed metal roof, gold frieze and clock tower with an open belfry";
-    rec.focusHeading = 231;
-    rec.roofShape = "Shallow ribbed metal roof (estimated)";
-    rec.top = topEll;
-    rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    push(rec, mesh, {
+      appearance: "brick arcade hall with a shallow ribbed metal roof, gold frieze and clock tower with an open belfry",
+      focusHeading: 231, roofShape: "Shallow ribbed metal roof (estimated)", top: topEll, modelHeight: topEll - (rec.props.ground_min_m + rec.N),
+    });
   }
   // 예술·디자인대학관 (College of Art & Design)
   if (details?.artdesign && byId.has(details.artdesign.id)) {
     const rec = byId.get(details.artdesign.id);
     const { mesh, topEll } = buildArtDesign(details.artdesign, rec, dem);
-    const id = { bid: rec.props.id, part: 0, kind: "building" };
-    rec.parts = [id];
-    rec.appearance = "white neoclassical complex modelled from photographs: Ionic colonnaded base, temple portico with pediment and medallion, grand stairs, ~8-storey main block with corner towers and top loggia";
-    rec.top = topEll;
-    rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    push(rec, mesh, {
+      appearance: "white neoclassical complex modelled from photographs: Ionic colonnaded base, temple portico with pediment and medallion, grand stairs, ~8-storey main block with corner towers and top loggia",
+      top: topEll, modelHeight: topEll - (rec.props.ground_min_m + rec.N),
+    });
   }
   // photo-based models of the other campus buildings (description in campus_details.photo_buildings)
   for (const [oid, pm] of Object.entries(photoModels)) {
     if (!byId.has(oid)) continue;
     const rec = byId.get(oid);
     const { mesh, topEll } = buildPhotoModel(pm, rec, dem);
-    const id = { bid: oid, part: 0, kind: "building" };
-    rec.parts = [id];
-    rec.appearance = pm.appearance;
-    rec.roofShape = pm.roof_shape;
-    if (pm.name_en) rec.props.name_en ??= pm.name_en;
-    rec.focusHeading = pm.focus_heading;
-    rec.focusPitch = pm.focus_pitch;
-    rec.top = topEll;
-    rec.modelHeight = topEll - (rec.props.ground_min_m + rec.N);
-    instances.push(new Cesium.GeometryInstance({ id, geometry: mesh.geometry(), attributes: { color: noTint() } }));
+    const patch = { appearance: pm.appearance, roofShape: pm.roof_shape, focusHeading: pm.focus_heading, focusPitch: pm.focus_pitch,
+      top: topEll, modelHeight: topEll - (rec.props.ground_min_m + rec.N) };
+    if (pm.name_en) patch.name_en = pm.name_en;
+    for (const k of Object.keys(patch)) if (patch[k] === undefined) delete patch[k];
+    push(rec, mesh, patch);
   }
   // plaza obelisks (사색의 광장)
   for (const ob of details?.plaza?.obelisks ?? []) {
     const mesh = new Mesh();
     buildObelisk(mesh, ob, details.plaza.obelisk_height_m, dem);
-    instances.push(new Cesium.GeometryInstance({
-      id: { kind: "landmark", props: { id: ob.id, name: "오벨리스크 · Obelisk (사색의 광장)", height: details.plaza.obelisk_height_m, source: details.plaza.obelisk_height_source, ground: ob.ground_m } },
-      geometry: mesh.geometry(), attributes: { color: noTint() },
-    }));
+    items.push({ key: ob.id, name: "오벨리스크 · Obelisk (사색의 광장)", group: "buildings",
+      pick: { kind: "landmark", props: { id: ob.id, name: "오벨리스크 · Obelisk (사색의 광장)", height: details.plaza.obelisk_height_m, source: details.plaza.obelisk_height_source, ground: ob.ground_m } },
+      mesh });
+  }
+  return items;
+}
+
+/**
+ * Cesium primitives for the campus models. `baked` = a decoded group (baked.js) from the pre-baked files,
+ * or null to generate the models in the browser. One GeometryInstance per building keeps per-building
+ * picking and highlighting; all of them share one Primitive (one shader, batched by Cesium's workers).
+ * Returns { prims, exportGeoms } (exportGeoms: the small Cesium-geometry parts, for the GLB export).
+ */
+export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile, baked = null) {
+  const instances = [];
+  const attrs = () => ({ color: noTint() });
+  const byId = new Map(campusRecs.map((r) => [r.props.id, r]));
+  if (baked) {
+    for (const r of baked.manifest.items) {
+      const rec = r.pick?.bid ? byId.get(r.pick.bid) : null;
+      if (r.pick?.bid && !rec) continue;          // not in this campus subset
+      if (rec) { applyPatch(rec, r.patch); rec.parts = [r.pick]; }
+      instances.push(new Cesium.GeometryInstance({ id: r.pick, geometry: geometryFromItems(baked, [r]), attributes: attrs() }));
+    }
+  } else {
+    for (const it of buildKhuItems(dem, campusRecs, details)) {
+      const rec = it.pick?.bid ? byId.get(it.pick.bid) : null;
+      if (rec) rec.parts = [it.pick];
+      instances.push(new Cesium.GeometryInstance({ id: it.pick, geometry: it.mesh.geometry(), attributes: attrs() }));
+    }
   }
   const prims = [];
   const facade = viewer.scene.primitives.add(new Cesium.Primitive({
@@ -189,6 +218,12 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
   }));
   prims.push(facade);
   for (const rec of campusRecs) if (!rec.primitive) rec.primitive = facade;
+  const pools = [...(details?.plaza?.fountains ?? []).map((p) => ({ ...p, kind: "fountain" }))];
+  const pd = details?.theatre?.pond;
+  if (details?.theatre && byId.has(details.theatre.id) && pd?.coords.length) {
+    pools.push({ id: pd.id, coords: pd.coords, ground_min_m: pd.ground_min_m, ground_mean_m: pd.ground_mean_m, kind: "pond" });
+  }
+  const exportGeoms = [];
 
   // fountain pool(s): water surface + stone rim + central basin with jets
   const water = [], stone = [];
@@ -232,6 +267,8 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
       }));
     }
   }
+  for (const inst of stone) exportGeoms.push({ group: "Water features", name: "Pool rim / basin", inst });
+  for (const inst of water) exportGeoms.push({ group: "Water features", name: inst.id?.props?.name ?? "Water jet", inst });
   if (stone.length) prims.push(viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances: stone, appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: false }), asynchronous: false })));
   if (water.length) prims.push(viewer.scene.primitives.add(new Cesium.Primitive({ geometryInstances: water, appearance: new Cesium.PerInstanceColorAppearance({ translucent: true, closed: false, flat: false }), asynchronous: false })));
 
@@ -274,7 +311,7 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
   }
 
   // observatory dome on the circular 천문대 footprint
-  if (details?.observatory && byId.has(details.observatory.id) && !photoModels[details.observatory.id]) {
+  if (details?.observatory && byId.has(details.observatory.id) && !details?.photo_buildings?.[details.observatory.id]) {
     const rec = byId.get(details.observatory.id);
     const [lon, lat] = details.observatory.center;
     const r = Math.min(7.5, details.observatory.footprint_radius_m * 0.36);
@@ -290,8 +327,9 @@ export function buildKhuPrimitives(viewer, dem, campusRecs, details, mobile) {
       shadows: mobile ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
       asynchronous: false,
     })));
+    exportGeoms.push({ group: "Buildings", name: "천문대 dome · Observatory dome", inst: prims.at(-1).geometryInstances });
     rec.appearance = (rec.appearance || "") + "; dome (illustrative, radius " + r.toFixed(1) + " m)";
     rec.top += r;
   }
-  return prims;
+  return { prims, exportGeoms };
 }

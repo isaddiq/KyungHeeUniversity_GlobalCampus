@@ -69,7 +69,9 @@ export class CameraController {
       this.onMode(this.mode, this.status());
     }, { passive: false });
 
-    this.scene.preRender.addEventListener(() => this.tick());
+    // preUpdate runs every animation frame even when nothing is rendered (request-render mode, main.js);
+    // camera moves made here then trigger the render themselves
+    this.scene.preUpdate.addEventListener(() => this.tick());
   }
 
   isFree() { return this.mode === "walk" || this.mode === "fly" || this.mode === "follow"; }

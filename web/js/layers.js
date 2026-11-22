@@ -1,6 +1,7 @@
 // Geographic feature layers built from the preprocessed GeoJSON (OSM-derived) and DEM.
-import { buildKhuPrimitives } from "./khu_buildings.js";
-import { buildTrees } from "./trees.js";
+import { buildKhuPrimitives, buildingRec } from "./khu_buildings.js";
+import { buildTrees, treeFilter } from "./trees.js";
+import { loadBakedGroup } from "./baked.js";
 import { buildGroundObjects } from "./ground_objects.js";
 const Cesium = window.Cesium;
 
@@ -50,49 +51,91 @@ function hierarchy(poly) {
   return new Cesium.PolygonHierarchy(toPos(poly[0]), poly.slice(1).map((h) => new Cesium.PolygonHierarchy(toPos(h))));
 }
 
+
+export const GROUND_FILL = { grass: "#6e9a4c", garden: "#7cab55", plaza: "#dcd7cb", paving: "#d4cec1", dirt: "#c6a57b", turf: "#3d9140",
+    court_surround: "#4d7f69", court_out: "#3f7a5c", court_in: "#3a6d9c", tennis_runoff: "#65806a", tennis_hard: "#455b54",
+    court_bb: "#c4703e", parking: "#56595d", forest: "#4b5e35", water: "#4f8fb8",
+    turf2: "#4aa047", court_bbg: "#3fae7c", court_key: "#c9654b", brick: "#c48c78",
+    asphalt: "#4a4d51", concrete: "#afa89a", gravel: "#bba98a", path: "#b99c76", steps: "#d2ccbf", asphalt_red: "#a85a4a", tread: "#8a857b",
+    line_white: "#f4f4f4", line_yellow: "#f2c230", line_dark: "#262626", sidewalk: "#9b625b", kerb: "#d3cfc6",
+    terrace: "#a9a8a1", sand: "#d3b98e", field: "#6a9a46" };
+export const GROUND_LINE = { road_asphalt: "#4a4d51", road_paving: "#d8d2c5", road_gravel: "#bba98a", road_path: "#b99c76", road_steps: "#d2ccbf",
+    road_asphalt_red: "#a85a4a", centre_yellow: "#f2c230", centre_white: "#f4f4f4", paint: "#ffffff", net: "#262626",
+    stall: "#f0f0f0", tread: "#8a857b" };
+
 export class CampusLayers {
-  constructor(viewer, dem, { mobile }) {
+  /** baked: top-level manifest of web/data/baked (bake_models.py) or null (models generated in the browser). */
+  constructor(viewer, dem, { mobile, details = null, baked = null }) {
     this.viewer = viewer;
     this.dem = dem;
     this.mobile = mobile;
+    this.details = details;
+    this.baked = baked;
     this.buildings = new Map(); // id -> {props, feature, parts: [idObj], sphere}
     this.selected = null;
     this.colorMode = "realistic";
     this.footprintIndex = [];
+    this.groundObjectPrimitives = [];
+    this.cherryPrimitives = [];
+    this.exportGeoms = [];      // small Cesium-geometry parts (water, dome) for the GLB export
+    this.groups = {};           // decoded baked groups, kept for the GLB export
+  }
+
+  /** Baked group (decoded, cached). Null when there is no baked data or the request failed. */
+  bakedGroup(name) {
+    if (!this.baked?.groups?.[name]) return Promise.resolve(null);
+    return this.groups[name] ??= loadBakedGroup(`${this.base}/baked`, this.baked.groups[name])
+      .catch((e) => { console.warn(`baked ${name} unavailable, generating in the browser`, e); return null; });
   }
 
   async load(base, onProgress = () => {}) {
+    this.base = base;
     // campus-only browser subsets (scripts/build_web_subset.py); the full files are the fallback
     const sub = (name) => loadJSON(`${base}/${name}_campus.geojson`).catch(() => loadJSON(`${base}/${name}.geojson`));
-    let [boundary, buildings, roads, landcover, pois, details] = await Promise.all([
-      loadJSON(`${base}/boundary.geojson`), sub("buildings"), sub("roads"), sub("landcover"),
-      loadJSON(`${base}/pois.geojson`), loadJSON(`${base}/campus_details.json`).catch(() => null),
+    // ground.json: the baked copy has its polygons validated offline and the (baked) objects removed
+    const groundBaked = this.baked?.ground ? loadJSON(`${base}/baked/${this.baked.ground}`).catch(() => null) : Promise.resolve(null);
+    let [boundary, buildings, pois, details, groundV, modelGroup, objectGroup] = await Promise.all([
+      loadJSON(`${base}/boundary.geojson`), sub("buildings"), loadJSON(`${base}/pois.geojson`),
+      this.details ? this.details : loadJSON(`${base}/campus_details.json`).catch(() => null),
+      groundBaked, this.bakedGroup("buildings"), this.bakedGroup("ground_objects"),
     ]);
-    const ground = await loadJSON(`${base}/ground.json`).catch(() => null);
+    // the full files are needed for whatever was not baked
+    let ground = groundV;
+    if (!ground || !objectGroup) ground = await loadJSON(`${base}/ground.json`).catch(() => groundV);
+    if (!modelGroup && details?.slim) details = await loadJSON(`${base}/campus_details.json`);
+    const validated = ground === groundV && !!groundV;
     this.details = details;
+    this.ground = ground;
     // crop: keep only the university (campus boundary + 30 m)
     const clipRings = details?.clip?.rings ?? null;
     this.inClip = (lon, lat) => !clipRings || clipRings.some((r) => pointInRing(lon, lat, r));
     buildings = { ...buildings, features: buildings.features.filter((f) => f.properties.in_campus) };
-    roads = { ...roads, features: roads.features.filter((f) => f.properties.in_campus) };
-    landcover = { ...landcover, features: landcover.features.filter((f) => f.properties.in_campus) };
     pois = { ...pois, features: pois.features.filter((f) => this.inClip(...f.geometry.coordinates)) };
     this.boundaryFC = boundary;
     onProgress("Building terrain-draped layers…");
     this.cherries = ground?.cherries ?? [];
-    this.cherryPrimitives = buildGroundObjects(this.viewer, this.dem, this.cherries, this.mobile);
-    if (ground) this.addGround(ground);
-    else { this.addLandcover(landcover); this.addRoads(roads); this.landcoverPrimitives = [this.landcoverPrimitive]; }
+    const pick = (cherry) => objectGroup ? { group: objectGroup, recs: objectGroup.manifest.items.filter((r) => (r.kind === "cherry") === cherry) } : null;
+    this.cherryPrimitives = buildGroundObjects(this.viewer, this.dem, this.cherries, this.mobile, { baked: pick(true) }).prims;
+    if (ground) {
+      this.addGround(ground, validated);
+      const o = buildGroundObjects(this.viewer, this.dem, ground.objects, this.mobile, { baked: pick(false) });
+      this.groundObjectPrimitives = o.prims;
+      this.exportGeoms.push(...o.exportGeoms);
+    } else {
+      let [roads, landcover] = await Promise.all([sub("roads"), sub("landcover")]);
+      roads = { ...roads, features: roads.features.filter((f) => f.properties.in_campus) };
+      landcover = { ...landcover, features: landcover.features.filter((f) => f.properties.in_campus) };
+      this.addLandcover(landcover); this.addRoads(roads); this.landcoverPrimitives = [this.landcoverPrimitive];
+    }
     this.addBoundary(boundary);
     onProgress("Extruding building footprints…");
-    this.addBuildings(buildings);
+    this.addBuildings(buildings, modelGroup);
     this.addLabels();
     this.addPois(pois);
     // vegetation is added after the campus is on screen, in small chunks between frames (it used to block
     // the main thread for ~3 s); treePrimitive is a collection so layer toggles work while it fills
     this.treePrimitive = this.viewer.scene.primitives.add(new Cesium.PrimitiveCollection());
     this.treeCount = 0;
-    this.base = base;
     return { boundary, buildings };
   }
 
@@ -100,33 +143,35 @@ export class CampusLayers {
   loadTrees() {
     const base = this.base;
     return this.treesReady ??= (async () => {
-      let meta, buf;
-      try {
-        meta = await loadJSON(`${base}/trees_campus.json`);
-        buf = await (await fetch(`${base}/trees_campus.bin`)).arrayBuffer();
-      } catch {
-        meta = await loadJSON(`${base}/trees.json`);
-        buf = await (await fetch(`${base}/trees.bin`)).arrayBuffer();
+      const group = await this.bakedGroup("trees");
+      let meta = null, arr = null;
+      if (!group) {
+        let buf;
+        try {
+          meta = await loadJSON(`${base}/trees_campus.json`);
+          buf = await (await fetch(`${base}/trees_campus.bin`)).arrayBuffer();
+        } catch {
+          meta = await loadJSON(`${base}/trees.json`);
+          buf = await (await fetch(`${base}/trees.bin`)).arrayBuffer();
+        }
+        arr = new Float32Array(buf);
       }
       await new Promise((r) => setTimeout(r, 250));
-      const inPlantingArea = (lon, lat) => this.cherries.some(({p}) => Math.hypot((lon - p[0]) * 88700, (lat - p[1]) * 111000) < 3.5);
-      this.treeCount = await buildTrees(this.viewer, this.dem, meta, new Float32Array(buf),
-        (lon, lat) => this.inClip(lon, lat) && !inPlantingArea(lon, lat), this.mobile, this.treePrimitive);
+      const keep = treeFilter(this.details?.clip?.rings ?? null, this.cherries);
+      this.treeCount = await buildTrees(this.viewer, this.dem, meta, arr, keep, this.mobile, this.treePrimitive,
+        { baked: group ? { group, recs: group.manifest.items } : null });
     })();
   }
 
   // ---------------------------------------------------------------- buildings
-  addBuildings(fc) {
+  addBuildings(fc, modelGroup = null) {
     const instances = [];
     const campusRecs = [];
     const noCollide = new Set([this.details?.gate?.id, this.details?.amphitheatre?.id].filter(Boolean));
     for (const f of fc.features) {
       const p = f.properties;
-      const [clon, clat] = p.centroid;
-      const N = this.dem.geoidN(clon, clat);
-      const base = p.ground_min_m - 1.5 + N; // embed slightly: no floating on sloped sites
-      const top = p.ground_min_m + p.height_m + N;
-      const rec = { props: p, feature: f, parts: [], N, base, top, positions: [], detailed: p.in_campus };
+      const rec = buildingRec(f, this.dem);
+      const { base, top } = rec;
       const courtyard = this.details?.photo_buildings?.[p.id]?.open_courtyard;
       ringsOf(f.geometry).forEach((poly, k) => {
         const id = { bid: p.id, part: k, kind: "building" };
@@ -164,7 +209,10 @@ export class CampusLayers {
       asynchronous: true,
     }));
     for (const rec of this.buildings.values()) if (!rec.detailed) rec.primitive = this.buildingPrimitive;
-    this.khuPrimitives = buildKhuPrimitives(this.viewer, this.dem, campusRecs, this.details, this.mobile);
+    this.campusRecs = campusRecs;
+    const { prims, exportGeoms } = buildKhuPrimitives(this.viewer, this.dem, campusRecs, this.details, this.mobile, modelGroup);
+    this.khuPrimitives = prims;
+    this.exportGeoms.push(...exportGeoms);
     this.buildingPrimitives = [this.buildingPrimitive, ...this.khuPrimitives].filter(Boolean);
   }
 
@@ -225,11 +273,17 @@ export class CampusLayers {
   // ---------------------------------------------------------------- labels
   addLabels() {
     this.labels = this.viewer.scene.primitives.add(new Cesium.LabelCollection());
-    for (const rec of this.buildings.values()) {
+    for (const rec of this.buildings.values()) this.labelRec(rec);
+  }
+
+  /** Korean name label, plus the English line once a name is known (some come with the models). */
+  labelRec(rec) {
+    {
       const p = rec.props;
-      if (!p.in_campus || !(p.official_name_ko || p.name_ko)) continue;
+      if (!p.in_campus || !(p.official_name_ko || p.name_ko)) return;
       const [lon, lat] = p.centroid;
-      this.labels.add({
+      rec.labels ??= [];
+      if (!rec.labelKo) rec.labels.push(rec.labelKo = this.labels.add({
         position: Cesium.Cartesian3.fromDegrees(lon, lat, rec.top + 4),
         text: (p.official_no ? `${p.official_no}  ` : "") + (p.name_ko || p.official_name_ko).replace("경희대학교 국제캠퍼스 ", ""),
         font: "600 13px 'Noto Sans KR', 'Malgun Gothic', sans-serif",
@@ -242,8 +296,8 @@ export class CampusLayers {
         scaleByDistance: new Cesium.NearFarScalar(250, 1.05, 4000, 0.62),
         disableDepthTestDistance: 0, // labels are hidden behind structures and terrain
         id: { bid: p.id, kind: "building" },
-      });
-      if (p.name_en) this.labels.add({      // English name: second, smaller line, only when close enough to read
+      }));
+      if (p.name_en && !rec.labelEn) rec.labels.push(rec.labelEn = this.labels.add({      // English name: second, smaller line, only when close enough to read
         position: Cesium.Cartesian3.fromDegrees(lon, lat, rec.top + 4),
         text: p.name_en,
         font: "500 11.5px 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif",
@@ -257,7 +311,7 @@ export class CampusLayers {
         scaleByDistance: new Cesium.NearFarScalar(250, 1.0, 900, 0.8),
         disableDepthTestDistance: 0,
         id: { bid: p.id, kind: "building" },
-      });
+      }));
     }
   }
 
@@ -302,17 +356,11 @@ export class CampusLayers {
   }
 
   // ---------------------------------------------------------------- ground surfaces (fields, courts, parking, roads, markings)
-  addGround(g) {
-    const FILL = { grass: "#6e9a4c", garden: "#7cab55", plaza: "#dcd7cb", paving: "#d4cec1", dirt: "#c6a57b", turf: "#3d9140",
-      court_surround: "#4d7f69", court_out: "#3f7a5c", court_in: "#3a6d9c", tennis_runoff: "#65806a", tennis_hard: "#455b54",
-      court_bb: "#c4703e", parking: "#56595d", forest: "#4b5e35", water: "#4f8fb8",
-      turf2: "#4aa047", court_bbg: "#3fae7c", court_key: "#c9654b", brick: "#c48c78",
-      asphalt: "#4a4d51", concrete: "#afa89a", gravel: "#bba98a", path: "#b99c76", steps: "#d2ccbf", asphalt_red: "#a85a4a", tread: "#8a857b",
-      line_white: "#f4f4f4", line_yellow: "#f2c230", line_dark: "#262626", sidewalk: "#9b625b", kerb: "#d3cfc6",
-      terrace: "#a9a8a1", sand: "#d3b98e", field: "#6a9a46" };
-    const LINE = { road_asphalt: "#4a4d51", road_paving: "#d8d2c5", road_gravel: "#bba98a", road_path: "#b99c76", road_steps: "#d2ccbf",
-      road_asphalt_red: "#a85a4a", centre_yellow: "#f2c230", centre_white: "#f4f4f4", paint: "#ffffff", net: "#262626",
-      stall: "#f0f0f0", tread: "#8a857b" };
+  /** `validated`: the baked copy, whose polygons were checked offline (tools/bake.js), so no per-polygon
+   *  createGeometry here. Surfaces stay one GroundPrimitive per kind: kinds overlap on purpose (stripes on
+   *  turf, markings on asphalt) and the per-kind primitives keep their drawing order. */
+  addGround(g, validated = false) {
+    const FILL = GROUND_FILL, LINE = GROUND_LINE;
     const col = (c) => Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromCssColorString(c));
     const fills = [], forest = [];
     for (const f of g.fills) {
@@ -322,7 +370,7 @@ export class CampusLayers {
           f.c.slice(1).map((h) => new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(h.slice(0, -1).flat())))) });
         // a polygon whose geometry comes out empty is dropped by Cesium inside the batch, which shifts the
         // per-instance colours/ids of the following instances (e.g. a plaza drawn in the park's grass colour)
-        if (!Cesium.PolygonGeometry.createGeometry(geometry)) continue;
+        if (!validated && !Cesium.PolygonGeometry.createGeometry(geometry)) continue;
         (f.k === "forest" ? forest : fills).push(new Cesium.GeometryInstance({
           id: { kind: "ground", props: { kind: f.k, id: f.src } }, geometry,
           attributes: { color: col(FILL[f.k] || "#999999") },
@@ -345,8 +393,8 @@ export class CampusLayers {
       geometryInstances: forest, classificationType: T,
       appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false }), show: false,
     })) : null;
-    // one primitive per surface kind: if Cesium drops a degenerate instance inside a batch, the per-instance
-    // attributes of the following instances shift; within a single-colour batch that cannot recolour anything
+    // one primitive per surface kind: kinds overlap by design and draw in this order; also, if Cesium drops a
+    // degenerate instance inside a batch, the per-instance attributes of the following instances shift
     const byKind = new Map();
     for (const inst of fills) { const k = inst.id.props.kind; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(inst); }
     this.landcoverPrimitives = [...byKind.values()].map((arr) => prims.add(new Cesium.GroundPrimitive({
@@ -356,7 +404,6 @@ export class CampusLayers {
     this.roadPrimitives = [surf, marks].filter((a) => a.length).map((a) => prims.add(new Cesium.GroundPolylinePrimitive({
       geometryInstances: a, classificationType: T, appearance: new Cesium.PolylineColorAppearance({ translucent: false }),
     })));
-    this.groundObjectPrimitives = buildGroundObjects(this.viewer, this.dem, g.objects, this.mobile);
   }
 
   // ---------------------------------------------------------------- landcover

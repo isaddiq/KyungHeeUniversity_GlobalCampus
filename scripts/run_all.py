@@ -18,6 +18,7 @@ STEPS = [
     ("build_campus_details.py", False),  # landmark inputs: gate, library, theatre, peace hall, plaza, crop
     ("build_ground.py", False),    # sports fields, parking, roads, stairs and markings
     ("build_web_subset.py", False),  # campus-only copies of the feature layers for the browser
+    ("bake_models.py", False),     # pre-baked campus geometry for the browser (web/data/baked; needs Chromium)
     ("validate.py", False),        # Phase 7: checks, provenance, accuracy report
 ]
 

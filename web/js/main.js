@@ -1,6 +1,7 @@
 import { CONFIG, isMobile } from "./config.js";
 import { loadDem, createTerrainProvider, createTerrainMaterial } from "./terrain.js";
 import { CampusLayers, loadJSON } from "./layers.js";
+import { loadBakedIndex } from "./baked.js";
 import { CameraController, MODES } from "./camera.js";
 import { toEpsg5186, fmtLonLat } from "./geo.js";
 
@@ -22,10 +23,15 @@ async function main() {
   mark("khu:start");
 
   setLoading("Loading FABDEM terrain grid…");
-  const [dem, summary, details] = await Promise.all([loadDem(`${DATA}/terrain`), loadJSON(`${DATA}/summary.json`), loadJSON(`${DATA}/campus_details.json`)]);
+  // web/data/baked (scripts/bake_models.py): pre-built campus geometry + a slim copy of campus_details.json.
+  // Without it (or with ?procedural=1) the models are generated in the browser from the full details.
+  const bakedP = loadBakedIndex(`${DATA}/baked`);
+  const detailsP = bakedP.then((b) => (b?.details ? loadJSON(`${DATA}/baked/${b.details}`) : Promise.reject()))
+    .catch(() => loadJSON(`${DATA}/campus_details.json`));
+  const [dem, summary, baked, details] = await Promise.all([loadDem(`${DATA}/terrain`), loadJSON(`${DATA}/summary.json`), bakedP, detailsP]);
 
   const viewer = new Cesium.Viewer("cesium", {
-    terrainProvider: createTerrainProvider(dem),
+    terrainProvider: createTerrainProvider(dem, { workers: Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 2)) }),
     baseLayer: false,
     baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
     navigationHelpButton: false, animation: false, timeline: false, fullscreenButton: false,
@@ -50,11 +56,39 @@ async function main() {
   scene.fog.enabled = true;
   scene.fog.density = 1.2e-4;
   scene.highDynamicRange = false;
+  // Request-render mode: frames are drawn only when something changes (camera, tiles, data, UI), not 60x a
+  // second while the view is still. Cesium detects camera moves, tile loads and flights itself; the hook
+  // below keeps frames coming while anything is still loading, and UI input requests one explicitly.
+  scene.requestRenderMode = true;
+  scene.maximumRenderTimeChange = Infinity;
+  scene.preUpdate.addEventListener(() => {
+    const L = window.__layers;
+    const loading = !globe.tilesLoaded || document.body.dataset.ready !== "1" ||
+      (L && [...(L.buildingPrimitives ?? []), ...(L.landcoverPrimitives ?? []), ...(L.roadPrimitives ?? []), ...L.groundObjectPrimitives,
+        ...L.cherryPrimitives].some((p) => p && !p.ready));
+    if (loading || window.cam?.isFree?.() || window.cam?.keys?.size) scene.requestRender();
+  });
+  for (const ev of ["input", "change", "click", "keydown", "pointerdown", "pointerup", "wheel"]) {
+    document.addEventListener(ev, () => scene.requestRender(), { capture: true, passive: true });
+  }
+  addEventListener("resize", () => scene.requestRender());
 
   // ---------------- crop to the university: terrain clipped to campus boundary + 30 m ----------------
   const cb = details.clip.bbox;
   const fbx = { west: cb[0], south: cb[1], east: cb[2], north: cb[3] };
   globe.cartographicLimitRectangle = Cesium.Rectangle.fromDegrees(cb[0] - 0.0005, cb[1] - 0.0005, cb[2] + 0.0005, cb[3] + 0.0005);
+  // Cesium 1.123 recomputes each clipping polygon's rectangle from all of its vertices for every terrain tile
+  // on every frame (ClippingPolygonCollection.computeIntersectionWithBoundingVolume): 4.3 s of a 6 s camera
+  // flight in the profile. The campus rings never change, so the rectangle is computed once per polygon.
+  const cpProto = Cesium.ClippingPolygon.prototype;
+  if (!cpProto.__khuCachedRect) {
+    const computeRectangle = cpProto.computeRectangle;
+    cpProto.computeRectangle = function (result) {
+      this.__rect ??= computeRectangle.call(this);
+      return Cesium.Rectangle.clone(this.__rect, result);
+    };
+    cpProto.__khuCachedRect = true;
+  }
   globe.clippingPolygons = new Cesium.ClippingPolygonCollection({
     polygons: details.clip.rings.map((r) => new Cesium.ClippingPolygon({ positions: Cesium.Cartesian3.fromDegreesArray(r.slice(0, -1).flat()) })),
     inverse: true,
@@ -175,7 +209,7 @@ async function main() {
 
   // ---------------- features ----------------
   setLoading("Loading buildings, roads and landcover…");
-  const layers = new CampusLayers(viewer, dem, { mobile: isMobile });
+  const layers = new CampusLayers(viewer, dem, { mobile: isMobile, details, baked });
   const { buildings } = await layers.load(DATA, setLoading);
   mark("khu:layers");
   window.__layers = layers;
@@ -264,6 +298,31 @@ async function main() {
 
   // ---------------- bottom bar ----------------
   $("#btnReset").onclick = () => cam.flyHome();
+  // Export GLB: every item is its own named node (glb_export.js); the module loads only when used
+  $("#btnExportGlb").onclick = async () => {
+    const btn = $("#btnExportGlb"), label = btn.querySelector("span");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const original = label.textContent;
+    try {
+      const { exportCampusGlb } = await import("./glb_export.js");
+      const { blob, items, triangles } = await exportCampusGlb(layers, dem, (f, what) => { label.textContent = `Exporting ${Math.round(f * 100)}% · ${what}`; });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "khu_global_campus.glb";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+      label.textContent = `Saved: ${items.toLocaleString()} items, ${(blob.size / 1048576).toFixed(0)} MB`;
+      console.info(`GLB export: ${items} items, ${Math.round(triangles).toLocaleString()} triangles, ${(blob.size / 1048576).toFixed(1)} MB`);
+      setTimeout(() => { label.textContent = original; }, 4000);
+    } catch (e) {
+      console.error("GLB export failed", e);
+      label.textContent = "Export failed";
+      setTimeout(() => { label.textContent = original; }, 4000);
+    } finally {
+      btn.disabled = false;
+    }
+  };
   $("#btnBuildings").onclick = () => setLayer("buildings", !layers.buildingPrimitives[0].show);
   $("#btnImagery").onclick = () => {
     const next = state.imagery === "none" ? state.lastImagery : "none";
@@ -456,9 +515,22 @@ async function main() {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
   // cursor readout
-  let pending = null;
-  handler.setInputAction((e) => { pending = e.endPosition; }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+  // Updated at most every 100 ms and only when the mouse or the camera moved: it used to run a globe
+  // ray pick on every frame forever after the first mouse move.
+  let pending = null, mouseMoved = false, lastReadout = 0, readoutTimer = null;
+  const lastCam = new Cesium.Cartesian3(), lastDir = new Cesium.Cartesian3();
+  handler.setInputAction((e) => { pending = Cesium.Cartesian2.clone(e.endPosition); mouseMoved = true; scene.requestRender(); }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
   scene.postRender.addEventListener(() => {
+    const now = performance.now();
+    const camMoved = !Cesium.Cartesian3.equalsEpsilon(viewer.camera.positionWC, lastCam, 0, 0.01) ||
+      !Cesium.Cartesian3.equalsEpsilon(viewer.camera.directionWC, lastDir, 0, 1e-6);
+    if (!(mouseMoved || camMoved)) return;
+    if (now - lastReadout < 100) {   // throttled: make sure a frame comes after the window so it is not stale
+      readoutTimer ??= setTimeout(() => { readoutTimer = null; scene.requestRender(); }, 110);
+      return;
+    }
+    lastReadout = now; mouseMoved = false;
+    Cesium.Cartesian3.clone(viewer.camera.positionWC, lastCam); Cesium.Cartesian3.clone(viewer.camera.directionWC, lastDir);
     const c = viewer.camera.positionCartographic;
     const clon = Cesium.Math.toDegrees(c.longitude), clat = Cesium.Math.toDegrees(c.latitude);
     const agl = c.height - dem.heightEllipsoid(clon, clat);

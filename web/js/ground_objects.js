@@ -1,6 +1,7 @@
 // 3D ground details use mapped outlines where available and estimated geometry from campus photographs.
 import { Mesh, Frame, Local, STY, hex, createFacadeAppearance } from "./mesh.js";
 import { figure } from "./khu_landmarks.js";
+import { geometryFromItems } from "./baked.js";
 const Cesium = window.Cesium;
 
 const GRANITE = hex("#dcd8cf"), TILE = hex("#3d8fc0"), WHITE = hex("#f3f1ec"), HEDGE = hex("#3c6a2c"), JET = hex("#e8f4fb");
@@ -348,32 +349,62 @@ function cherry(mesh, o, dem) {
   G.sphere({s: 0.15, t: -0.18, z: height * 0.83, r: spread * 0.60, col: flowers[1], sty: STY.FOLIAGE, seg: 8, sz: 0.76, jit: 0.19});
 }
 
-export function buildGroundObjects(viewer, dem, objects, mobile) {
-  const mesh = new Mesh(), water = [];
-  for (const o of objects ?? []) {
+const BUILDERS = { fountain: null, hedge, planter, net, terrace, kerb, pagoda, goal, pergola, stair: accessStair, turf_pavilion: turfPavilion, cherry };
+const KIND_NAMES = { fountain: "Fountain", hedge: "Hedge", planter: "Planter", net: "Ball-stop net", terrace: "Terrace seating", kerb: "Kerb",
+  pagoda: "Pavilion", goal: "Goal", pergola: "Pergola", stair: "Access stair", turf_pavilion: "Turf pavilion", cherry: "Cherry tree" };
+
+/** One item per ground object (each is its own node in the GLB export): [{ key, name, kind, group, pick, mesh }]. */
+export function groundObjectItems(dem, objects) {
+  const items = [];
+  (objects ?? []).forEach((o, i) => {
+    if (!(o.k in BUILDERS)) return;
+    const mesh = new Mesh();
     try {
-      if (o.k === "fountain") fountain(mesh, water, o, dem);
-      else if (o.k === "hedge") hedge(mesh, o, dem);
-      else if (o.k === "planter") planter(mesh, o, dem);
-      else if (o.k === "net") net(mesh, o, dem);
-      else if (o.k === "terrace") terrace(mesh, o, dem);
-      else if (o.k === "kerb" && !mobile) kerb(mesh, o, dem);
-      else if (o.k === "pagoda") pagoda(mesh, o, dem);
-      else if (o.k === "goal") goal(mesh, o, dem);
-      else if (o.k === "pergola") pergola(mesh, o, dem);
-      else if (o.k === "stair") accessStair(mesh, o, dem);
-      else if (o.k === "turf_pavilion") turfPavilion(mesh, o, dem);
-      else if (o.k === "cherry") cherry(mesh, o, dem);
-    } catch (e) { console.warn("ground object skipped", o.id, e.message); }
+      if (o.k === "fountain") fountain(mesh, [], o, dem);
+      else BUILDERS[o.k](mesh, o, dem);
+    } catch (e) { console.warn("ground object skipped", o.id, e.message); return; }
+    if (mesh.empty) return;
+    items.push({ key: o.id ?? `${o.k}-${i}`, name: `${o.name || KIND_NAMES[o.k]}${o.id ? ` (${o.id})` : ""}`, kind: o.k,
+      group: "ground_objects", pick: { kind: "ground_detail" }, mesh });
+  });
+  return items;
+}
+
+/** Water surfaces of the fountains (translucent Cesium polygons, built at run time: they are tiny). */
+function fountainWater(dem, objects) {
+  const water = [];
+  for (const o of objects ?? []) if (o.k === "fountain") try { fountain(new Mesh(), water, o, dem); } catch { /* skipped above too */ }
+  return water;
+}
+
+/**
+ * Ground details: from the baked group (`baked` = { group, recs }) or generated in the browser.
+ * Kerbs are left out on mobile.
+ */
+export function buildGroundObjects(viewer, dem, objects, mobile, { baked = null } = {}) {
+  const keep = (k) => !(mobile && k === "kerb");
+  let geometry = null;
+  if (baked) {
+    const recs = baked.recs.filter((r) => keep(r.kind));
+    if (recs.length) geometry = geometryFromItems(baked.group, recs);
+  } else {
+    const items = groundObjectItems(dem, (objects ?? []).filter((o) => keep(o.k)));
+    if (items.length) {
+      const mesh = new Mesh();
+      for (const it of items) mesh.append(it.mesh);
+      geometry = mesh.geometry();
+    }
   }
+  const water = fountainWater(dem, objects);
   const prims = [];
-  if (!mesh.empty) prims.push(viewer.scene.primitives.add(new Cesium.Primitive({
-    geometryInstances: new Cesium.GeometryInstance({ id: { kind: "ground_detail" }, geometry: mesh.geometry(), attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1, 1, 1, 0)) } }),
+  const attributes = { color: Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(1, 1, 1, 0)) };
+  if (geometry) prims.push(viewer.scene.primitives.add(new Cesium.Primitive({
+    geometryInstances: new Cesium.GeometryInstance({ id: { kind: "ground_detail" }, geometry, attributes }),
     appearance: createFacadeAppearance(), asynchronous: true, compressVertices: false,
     shadows: mobile ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
   })));
   if (water.length) prims.push(viewer.scene.primitives.add(new Cesium.Primitive({
     geometryInstances: water, appearance: new Cesium.PerInstanceColorAppearance({ translucent: true, closed: false }), asynchronous: false,
   })));
-  return prims;
+  return { prims, exportGeoms: water.map((inst) => ({ group: "Water features", name: inst.id?.props?.name ?? "Fountain water", inst })) };
 }

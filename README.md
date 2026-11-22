@@ -71,6 +71,12 @@ for engineering, legal or safety decisions.
   documented/derived/estimated status, source and confidence. Search covers names, numbers and ids, and
   deep links use `#b=way/474085534`.
 - Sun position and time of day with shadows, and a **Data & accuracy** dialog.
+- **Export GLB** (bottom bar): downloads the whole 3D campus as one binary glTF file in which every item
+  is its own named node, grouped by category: terrain, each building and landmark (with its OSM id,
+  names and height in the node extras), each ground surface, road line, ground object, water feature,
+  cherry tree and tree. Coordinates are metres in a local east-north-up frame at the campus centre (the
+  origin is stored in the file). The file carries geometry and base colours; window and masonry patterns
+  are drawn by the site's shader and are not part of it.
 
 ## Run locally
 
@@ -96,8 +102,12 @@ All asset URLs are relative, so the site works under any sub-path. This was chec
 repository root and opening `/web/`. If you would rather not use Actions, copy the contents of `web/`
 into a `docs/` folder and choose *Deploy from a branch → /docs*. `web/.nojekyll` is already present.
 
-The published site is 5.4 MB. CesiumJS 1.123.0 is loaded from jsDelivr, and imagery tiles are streamed
-from their providers.
+CesiumJS 1.123.0 is loaded from jsDelivr, and imagery tiles are streamed from their providers. GitHub
+Pages serves the data gzip-compressed.
+
+The workflow runs `python3 scripts/bake_models.py --check` before publishing. It fails if the baked
+geometry in `web/data/baked` no longer matches the code or data it was made from; re-bake and commit
+(see below). The check needs only the Python standard library.
 
 ## Data pipeline (reproducible)
 
@@ -107,6 +117,24 @@ python scripts/run_all.py            # downloads ~80 MB of raw data once into da
 python scripts/run_all.py --offline  # rebuild web/data from data/raw only
 python scripts/check_site.py         # optional: browser checks + screenshots (serve web/ on :8765 first)
 ```
+
+### Pre-baked geometry
+
+The campus building models and ground objects are generated once, offline, and the site downloads
+them instead of rebuilding them in every browser. After changing a model generator (`web/js/mesh.js`,
+`khu_buildings.js`, `khu_landmarks.js`, `gate_sculpture.js`, `ground_objects.js`) or its data, run:
+
+```bash
+pip install playwright && python -m playwright install chromium   # once
+python scripts/bake_models.py           # re-bakes only the groups whose inputs changed
+python scripts/bake_models.py --force   # everything
+```
+
+It runs the site's own generator code in headless Chromium (`tools/bake.js`), checks that the encoded
+geometry decodes back to the same vertices, and writes content-hashed files plus
+`web/data/baked/manifest.json`. Open the site with `?procedural=1` to generate the models in the
+browser instead (the original path, kept as a fallback). Details and measurements are in
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 | Step                                                                                                            | Script                      | Output                                                                             |
 | --------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------- |

@@ -456,6 +456,13 @@ export class Mesh {
     return this.p.length / 3 - 1;
   }
   tri(a, b, c) { this.i.push(a, b, c); }
+  /** Appends another Mesh (indices shifted). */
+  append(o) {
+    const base = this.p.length / 3;
+    const cat = (dst, src) => { for (let k = 0; k < src.length; k++) dst.push(src[k]); };
+    cat(this.p, o.p); cat(this.n, o.n); cat(this.st, o.st); cat(this.w, o.w); cat(this.s, o.s); cat(this.e, o.e);
+    for (let k = 0; k < o.i.length; k++) this.i.push(o.i[k] + base);
+  }
   get empty() { return this.i.length === 0; }
   geometry() {
     const F = Cesium.ComponentDatatype.FLOAT;
