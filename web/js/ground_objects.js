@@ -330,23 +330,39 @@ function turfPavilion(mesh, o, dem) {
   }
 }
 
+// Yoshino cherry (왕벚나무) in bloom: short dark trunk with horizontal lenticel bands, 4-5 scaffold limbs
+// spreading wide and low, secondary branches, and a broad, flat-topped canopy of blossom clumps.
 function cherry(mesh, o, dem) {
   const f = new Frame(...o.p, dem.heightEllipsoid(...o.p) - 0.2);
   const G = new Local(mesh, f, [1, 0]);
-  const bark = hex("#685049"), height = o.h, spread = height * 0.36;
-  const flowers = ["#f7d2dd", "#f5e6ed", "#ecc1d2", "#f8edf0"].map(hex);
-  G.cyl({s: 0, t: 0, z0: 0, z1: height * 0.64, r0: height * 0.033, r1: 0.08, col: bark, sty: STY.STATUE, seg: 7});
-  for (let i = 0; i < 6; i++) {
-    const a = o.rot + i * 2.39996;
-    const s = Math.cos(a) * spread * (0.64 + 0.19 * (i % 3));
-    const t = Math.sin(a) * spread * (0.64 + 0.19 * (i % 3));
-    const z = height * (0.61 + 0.055 * (i % 4));
-    G.cylBetween([0, 0, height * 0.28], [s * 0.92, t * 0.92, z], 0.08, bark, STY.STATUE, 5);
-    G.sphere({s, t, z, r: spread * 0.57, col: flowers[i % flowers.length], sty: STY.FOLIAGE, seg: 7, sz: 0.65, jit: 0.21, ph: a});
-    G.sphere({s: s * 1.15, t: t * 1.15, z: z + spread * 0.31, r: spread * 0.40,
-      col: flowers[(i + 1) % flowers.length], sty: STY.FOLIAGE, seg: 7, sz: 0.75, jit: 0.19, ph: a + 1});
+  const bark = hex("#4b3b37"), height = o.h, spread = height * 0.48;
+  const flowers = ["#f6cfdc", "#f9e3ea", "#efc0d1", "#fbeef2", "#f3d7e1"].map(hex);
+  let seed = Math.floor(Math.abs(o.rot) * 1e6) % 2147483646 + 1;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const r0 = height * 0.05 + 0.06, fork = height * (0.3 + 0.06 * rnd());
+  G.cylBetween([0, 0, 0], [0.1, -0.05, fork], r0, bark, STY.BARK_CHERRY, 7, r0 * 0.8);
+  const limbs = 4 + Math.floor(rnd() * 2);
+  const tips = [];
+  for (let i = 0; i < limbs; i++) {
+    const a = o.rot + i * 6.283 / limbs + (rnd() - 0.5) * 0.5;
+    const reach = spread * (0.75 + 0.25 * rnd());
+    const mid = [Math.cos(a) * reach * 0.45, Math.sin(a) * reach * 0.45, fork + height * (0.14 + 0.06 * rnd())];
+    const tip = [Math.cos(a) * reach, Math.sin(a) * reach, height * (0.56 + 0.1 * rnd())];
+    G.cylBetween([0.1, -0.05, fork], mid, r0 * 0.55, bark, STY.BARK_CHERRY, 5, r0 * 0.38);
+    G.cylBetween(mid, tip, r0 * 0.38, bark, STY.BARK_CHERRY, 5, r0 * 0.14);
+    // secondary branch off each limb, angled up and sideways
+    const b = a + (rnd() < 0.5 ? -0.7 : 0.7);
+    const tip2 = [mid[0] + Math.cos(b) * reach * 0.45, mid[1] + Math.sin(b) * reach * 0.45, height * (0.66 + 0.08 * rnd())];
+    G.cylBetween(mid, tip2, r0 * 0.26, bark, STY.BARK_CHERRY, 4, r0 * 0.1);
+    tips.push(tip, tip2);
   }
-  G.sphere({s: 0.15, t: -0.18, z: height * 0.83, r: spread * 0.60, col: flowers[1], sty: STY.FOLIAGE, seg: 8, sz: 0.76, jit: 0.19});
+  // blossom canopy: a clump on every branch tip, plus a few filling the top and the centre
+  const fill = [[0, 0, height * 0.8], [spread * 0.3, -spread * 0.2, height * 0.74], [-spread * 0.25, spread * 0.28, height * 0.76]];
+  for (const [k, [s, t, z]] of [...tips, ...fill].entries()) {
+    const r = spread * (k < tips.length ? 0.36 + 0.1 * rnd() : 0.42);
+    G.sphere({ s, t, z: z + r * 0.15, r, col: flowers[k % flowers.length].map((c) => c * (0.96 + 0.06 * rnd())),
+      sty: STY.BLOSSOM, seg: 7, sz: 0.62, jit: 0.26, ph: rnd() * 6.28 });
+  }
 }
 
 const BUILDERS = { fountain: null, hedge, planter, net, terrace, kerb, pagoda, goal, pergola, stair: accessStair, turf_pavilion: turfPavilion, cherry };

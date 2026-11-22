@@ -4,7 +4,7 @@
   "buildings": {
    "manifest": "buildings.018f3576e2.json",
    "bin": "buildings.a4ec968931.bin",
-   "inputs": "3c3b72acabf57e38",
+   "inputs": "e544f930b1b1effe",
    "items": 44,
    "vertices": 324916,
    "triangles": 353617,
@@ -12,14 +12,14 @@
    "duplicate_vertices_removed": 16522
   },
   "ground_objects": {
-   "manifest": "ground_objects.d5a7aa5178.json",
-   "bin": "ground_objects.ef051fa7dd.bin",
-   "inputs": "bcfd40aa6dc60c0b",
+   "manifest": "ground_objects.8292bcdbbe.json",
+   "bin": "ground_objects.4e2e3f75da.bin",
+   "inputs": "93e5e19e2a247278",
    "items": 152,
-   "vertices": 61739,
-   "triangles": 68565,
-   "bytes": 1682048,
-   "duplicate_vertices_removed": 12147
+   "vertices": 63611,
+   "triangles": 68669,
+   "bytes": 1738960,
+   "duplicate_vertices_removed": 14799
   }
  },
  "inputs": {

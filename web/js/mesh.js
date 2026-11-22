@@ -12,6 +12,7 @@ export const STY = {
   ENGINEERING_WING: 25, FOREIGN_LANGUAGES_WINDOWS: 26, ELECTRONICS_BRICK: 27,
   WOOJUNGWON_WINDOWS: 28, WOOJUNGWON_GLASS: 29,
   DORM_WINDOWS: 30,
+  LEAF: 31, BLOSSOM: 32, BARK: 33, BARK_CHERRY: 34,
 };
 
 const VS = `
@@ -384,6 +385,33 @@ void main() {
           (x < 0.034 && y < sill + 0.31)) col = vec3(0.69, 0.73, 0.71);
       spec = 0.48; shin = 52.0;
     }
+  } else if (sty == 31.0 || sty == 32.0) {        // leaf / blossom clumps: dappled, ragged see-through edges
+    // a clump's inside is never shown: otherwise its back faces fill the holes cut into the front
+    if (dot(v_normalEC, -v_positionEC) < 0.0) discard;
+    vec2 q = vec2(u, h);
+    float n1 = vnoise(q * 2.6), n2 = vnoise(q * 6.3 + 3.7), n3 = vnoise(q * 0.7 + 11.0);
+    float leaf = 0.6 * n1 + 0.4 * n2;
+    float facing = clamp(dot(n, toEye), 0.0, 1.0);
+    // holes and a ragged silhouette up close; solid when the clump is only a few pixels (no sparkle)
+    float near = 1.0 - smoothstep(0.06, 0.45, max(fwidth(u), fwidth(h)));
+    if (leaf < near * (0.3 + 0.5 * (1.0 - facing))) discard;
+    // large bites out of the clump rim: lobed, irregular crown outlines instead of the polygon edge
+    float bite = vnoise(q * 0.9 + 17.0);
+    if (bite < near * ((sty == 32.0 ? 0.8 : 1.15) * (1.0 - facing) - 0.12)) discard;   // blossom: fuller
+    // leaf-scale normal jitter: the clump shades like many small leaves instead of one smooth ball
+    vec3 jit = vec3(vnoise(q * 4.1 + 1.3), vnoise(q * 4.7 + 8.9), vnoise(q * 3.9 + 4.4)) - 0.5;
+    n = normalize(n + jit * 1.4 * near);
+    col = base * (0.55 + 0.75 * leaf) * (0.86 + 0.26 * n3);
+    if (sty == 32.0) {                             // petals: white speckle, deeper pink in the gaps
+      col = mix(col, vec3(0.99, 0.95, 0.97), smoothstep(0.62, 0.84, n2) * 0.5);
+      col = mix(col, vec3(0.86, 0.55, 0.66), (1.0 - smoothstep(0.25, 0.45, n2)) * 0.35);
+    }
+    spec = 0.05; shin = 8.0;
+  } else if (sty == 33.0 || sty == 34.0) {        // bark: 33 furrowed (pine, zelkova), 34 smooth with lenticel bands (cherry)
+    float n1 = vnoise(vec2(u * 7.0, h * 1.6)), n2 = vnoise(vec2(u * 2.0, h * 0.5) + 5.0);
+    col = sty == 33.0 ? base * (0.58 + 0.52 * n1) * (0.9 + 0.2 * n2) : base * (0.85 + 0.22 * n2);
+    if (sty == 34.0 && fract(h * 9.0 + 0.35 * n1) < 0.12) col *= 0.68;
+    spec = 0.03; shin = 6.0;
   } else if (sty == 21.0) {                       // foliage
     float n1 = vnoise(vec2(u, h) * 1.7), n2 = vnoise(vec2(u, h) * 6.0);
     col = base * (0.6 + 0.5 * n1 + 0.22 * n2);
@@ -576,8 +604,8 @@ export class Local {
       }
     }
   }
-  /** cylinder between two arbitrary points [s,t,z] */
-  cylBetween(a, b, r, col, sty = STY.STATUE, seg = 8) {
+  /** cylinder between two arbitrary points [s,t,z]; optional end radius r1 tapers it (branches) */
+  cylBetween(a, b, r, col, sty = STY.STATUE, seg = 8, r1 = r) {
     const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
     const len = Math.hypot(...d);
     const w = d.map((x) => x / len);
@@ -589,11 +617,11 @@ export class Local {
       const A = k / seg * 2 * Math.PI, B = (k + 1) / seg * 2 * Math.PI;
       const rad = (ang) => u1.map((x, i) => Math.cos(ang) * x + Math.sin(ang) * u2[i]);
       const nA = rad(A), nB = rad(B);
-      const at = (o, nn) => [o[0] + nn[0] * r, o[1] + nn[1] * r, o[2] + nn[2] * r];
-      const i0 = this._v(this.P(...at(a, nA)), this.D(...nA), A * r, 0, col, sty, len, 2 * Math.PI * r);
-      const i1 = this._v(this.P(...at(a, nB)), this.D(...nB), B * r, 0, col, sty, len, 2 * Math.PI * r);
-      const i2 = this._v(this.P(...at(b, nB)), this.D(...nB), B * r, len, col, sty, len, 2 * Math.PI * r);
-      const i3 = this._v(this.P(...at(b, nA)), this.D(...nA), A * r, len, col, sty, len, 2 * Math.PI * r);
+      const at = (o, nn, rr) => [o[0] + nn[0] * rr, o[1] + nn[1] * rr, o[2] + nn[2] * rr];
+      const i0 = this._v(this.P(...at(a, nA, r)), this.D(...nA), A * r, 0, col, sty, len, 2 * Math.PI * r);
+      const i1 = this._v(this.P(...at(a, nB, r)), this.D(...nB), B * r, 0, col, sty, len, 2 * Math.PI * r);
+      const i2 = this._v(this.P(...at(b, nB, r1)), this.D(...nB), B * r, len, col, sty, len, 2 * Math.PI * r);
+      const i3 = this._v(this.P(...at(b, nA, r1)), this.D(...nA), A * r, len, col, sty, len, 2 * Math.PI * r);
       this.m.tri(i0, i1, i2); this.m.tri(i0, i2, i3);
     }
   }
